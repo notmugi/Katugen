@@ -2,20 +2,16 @@
 
 *matugen, but for KDE.*
 
-Right-click any image in **Dolphin** → **Generate** → **Light** or **Dark**, and
-katugen generates a full Material You colorscheme with [matugen][matugen] and
-applies it across every app you have installed: KDE Plasma, Alacritty, kitty,
-foot, ghostty, wezterm, starship, GTK 3/4, Qt 5/6, btop, helix, yazi, zathura,
-cava, BetterDiscord, Vesktop, Vencord, Equibop and the rest of the Discord
-ecosystem, Zed, Emacs, Spicetify, Hyprland, Niri, Sway, labwc, Mango, Scroll,
-Hyprtoolkit, fuzzel, walker, vicinae, Noctalia shell, Zen Browser, Steam,
-Telegram Desktop — and Firefox via pywalfox.
+Right-click any image in **Dolphin → Generate → Light/Dark** and your whole
+desktop re-themes: KDE Plasma, Alacritty, kitty, foot, ghostty, wezterm,
+starship, GTK 3/4, Qt 5/6, btop, helix, yazi, zathura, cava, BetterDiscord,
+Vesktop, Vencord and friends, Zed, Emacs, Spicetify, Hyprland, Niri, Sway,
+labwc, Mango, Scroll, Hyprtoolkit, fuzzel, walker, vicinae, Noctalia shell,
+Zen Browser, Steam, Telegram Desktop, and Firefox via pywalfox.
 
-For most apps, katugen also **auto-edits the app's main config** so the new
-theme is picked up automatically (e.g. it inserts an `include` line into
-`fuzzel.ini`, `theme = "matugen"` into `walker/config.toml`, an `@import` into
-`gtk-3.0/gtk.css`, etc.) and sends a live-reload signal where supported (D-Bus
-to KDE/zathura, `SIGUSR1` to kitty/cava, `hyprctl reload`, …).
+For most apps katugen also **auto-edits the main config** (inserts the
+`include`/`@import` line) and **fires the right live-reload signal** so you
+don't have to restart anything.
 
 Templates and post-hook patterns are adapted from
 [noctalia-shell][noctalia], retuned for matugen 4.x.
@@ -23,144 +19,113 @@ Templates and post-hook patterns are adapted from
 [matugen]: https://github.com/InioX/matugen
 [noctalia]: https://github.com/noctalia-dev/noctalia-shell
 
-## How it works
-
-```
-Right-click image
-    ↓
-Generate → Light / Dark   (Dolphin service menu)
-    ↓
-~/.local/bin/matugen-generate.sh <mode> <image>
-    ↓
-plasma-apply-wallpaperimage          ← sets KDE wallpaper
-matugen image --mode <mode>          ← generates all themes
-    ↓
-For each enabled template, matugen runs its post_hook:
-    kde-apply-scheme.py    → merges into kdeglobals, signals KDE apps via D-Bus
-    gtk-refresh.py         → ensures @import in gtk.css, sets gsettings color-scheme
-    template-apply.sh kitty   → kitty +kitten themes --reload-in=all matugen
-    template-apply.sh alacritty → adds import to alacritty.toml
-    template-apply.sh fuzzel  → adds include= to fuzzel.ini
-    template-apply.sh pywalfox <mode> → pywalfox update; pywalfox <mode>
-    ...
-```
-
-### Auto-detection
-
-You don't pick which integrations to enable. The installer walks an inline
-"Application registry" section in [`install.sh`](install.sh) and only wires
-up apps whose config dir/file actually exists. Re-run `./install.sh` after
-installing a new app and it'll be picked up automatically.
-
-Two integrations are *always* installed: the KDE color scheme (the point of
-katugen) and the pywalfox cache.
-
-## Requirements
-
-- **KDE Plasma 6** (Plasma 5 should also work — the service menu spec is the same)
-- **matugen ≥ 4.x** — `yay -S matugen-bin` on Arch
-- `realpath`, `python3` (stdlib only by default; `jeepney` if you want the
-  faster D-Bus path)
-- *Optional:* `plasma-apply-wallpaperimage`, `gsettings` / `dconf`,
-  `notify-send`, `pywalfox`
-
 ## Install
 
 ```sh
-git clone https://github.com/notmugi/Katugen.git
+git clone https://github.com/notmugi/Katugen.git katugen
 cd katugen
 ./install.sh
 ```
 
-The installer is idempotent — re-run it any time. It only overwrites files
-whose content actually differs, backing up the old version to
-`*.bak-YYYYmmddHHMMSS`.
+Re-run `./install.sh` any time — it's idempotent, and auto-picks-up apps you
+install later. The installer only wires up apps whose config dir/file
+actually exists on your system.
 
-Where things go:
-
-```
-~/.config/matugen/templates/                       (all template files)
-~/.config/matugen/config.toml                      (generated; only your installed apps)
-~/.local/bin/matugen-generate.sh                   (the generator script)
-~/.local/share/katugen/template-apply.sh           (post-hook applier)
-~/.local/share/katugen/python/*.py                 (KDE + GTK helpers)
-~/.local/share/kio/servicemenus/matugen-generate.desktop   (Dolphin menu)
-```
-
-## Per-app notes
-
-Most apps are handled automatically by post-hooks — you don't need to touch
-them. A handful need a one-time prerequisite:
-
-- **Firefox** — install the [pywalfox add-on](https://github.com/Frewacom/pywalfox-native)
-  and run `pywalfox install` once. After that katugen runs
-  `pywalfox update && pywalfox <mode>` on every regeneration.
-- **Spicetify** — install Spotify and the Comfy spicetify theme. katugen
-  overwrites `~/.config/spicetify/Themes/Comfy/color.ini` and runs
-  `spicetify -q apply --no-restart`.
-- **Steam** — install the Material Steam skin separately; katugen writes
-  its colors file into the skin's `colors/` directory.
-- **Wezterm** — needs an existing `~/.config/wezterm/wezterm.lua` with
-  `local config = wezterm.config_builder()` and `return config`.
-- **Zen Browser** — katugen stages CSS into `~/.cache/katugen/zen-browser/`
-  and the post-hook injects an `@import` into every active profile's
-  `chrome/userChrome.css` and `userContent.css`.
-
-For everything else (kitty, foot, ghostty, alacritty, fuzzel, walker, yazi,
-cava, btop, niri, sway, hyprland, labwc, mango, scroll, vicinae, KDE, GTK,
-Qt, BetterDiscord, Vesktop, Vencord, …) the post-hooks handle config
-integration and live-reload automatically.
+**Requires:** KDE Plasma 6, [matugen][matugen] 4.x (`yay -S matugen-bin`),
+`python3`, `realpath`.
 
 ## Uninstall
 
 ```sh
-./uninstall.sh           # removes generator, service menu, helper dir
-./uninstall.sh --purge   # also removes ~/.config/matugen/{config.toml,templates}
+./uninstall.sh           # remove generator + service menu + helpers
+./uninstall.sh --purge   # also remove ~/.config/matugen/{config.toml,templates}
 ```
 
-Generated outputs (`~/.local/share/color-schemes/matugen.colors`,
-`~/.config/gtk-3.0/matugen.css`, …) are never removed — delete those manually
-for a fully clean slate. The post-hooks **do not unwind** their config edits;
-the `include`/`@import` lines they wrote stay until you remove them by hand.
+Generated theme files and the `include`/`@import` lines that post-hooks wrote
+into your configs are **not** removed — clean those up by hand if you want a
+fresh slate.
 
-## Customizing
+## Per-app one-time setup
 
-- **Add a new app** → drop a matugen-syntax template into `templates/`, add
-  a line to the *Application registry* section of `install.sh` using
-  `add_if <marker> <id> <template> <output> [post-hook]`, re-run
-  `./install.sh`.
-- **Change a template** → edit under `templates/` and re-run.
-- **Change a post-hook** → edit `scripts/template-apply.sh` and re-run.
+A handful of apps need a prerequisite before katugen can theme them. The rest
+are fully automatic.
 
-Template syntax reference: [matugen template docs][mtmpl].
+- **Firefox** — install [pywalfox][pywalfox], then run `pywalfox install` once.
+- **Spicetify** — install Spotify + the Comfy theme. katugen overwrites
+  Comfy's `color.ini`.
+- **Steam** — install the Material Steam skin separately.
+- **Wezterm** — your `wezterm.lua` must use `wezterm.config_builder()` and end with `return config`.
 
-[mtmpl]: https://github.com/InioX/matugen/blob/main/docs/configuration/templates.md
+[pywalfox]: https://github.com/Frewacom/pywalfox-native
+
+## Contributing — adding a new app
+
+PRs welcome. To add support for a new app:
+
+1. **Drop a matugen template** into `templates/`. Use any existing template
+   as a reference for the syntax (`{{colors.primary.default.hex}}`, etc.).
+   See [matugen template docs][mtmpl] for the full list of color names.
+
+2. **Register the app** in the *Application registry* section of
+   `install.sh`. The minimal form is:
+
+   ```bash
+   add_if "<marker>" <id> <template-relpath> "<output-path>" [<post-hook>]
+   ```
+
+   - `<marker>` — a file or directory that exists iff the user has the app
+     (e.g. `~/.config/myapp` or `~/.config/myapp/config.toml`). Prefer a
+     specific config file over a bare directory.
+   - `<id>` — unique short name (matugen `[templates.<id>]` section).
+   - `<template-relpath>` — path under `templates/`.
+   - `<output-path>` — where matugen writes the rendered file. Keep `~`
+     literal; matugen expands it at runtime.
+   - `<post-hook>` (optional) — shell command run after each regeneration.
+     Use `$APPLY_DST <app>` to call into `scripts/template-apply.sh`, or
+     any shell command.
+
+   Example:
+
+   ```bash
+   add_if "~/.config/myapp/config.toml" \
+          myapp   myapp.toml   "~/.config/myapp/themes/matugen.toml" \
+          "$APPLY_DST myapp"
+   ```
+
+3. **If your app needs config integration** (insert an `include` line, send
+   a SIGUSR1, etc.) add a `myapp)` case to
+   [`scripts/template-apply.sh`](scripts/template-apply.sh). It should be
+   **idempotent** — running it twice must not produce duplicate lines.
+
+4. **Test**:
+   ```sh
+   ./install.sh
+   ~/.local/bin/matugen-generate.sh dark /path/to/test.jpg
+   ```
+   Re-run install three times and confirm "unchanged" each time.
+
+5. **Open the PR.** Include in the description: app name + project URL,
+   which Material You color names the template uses, and what (if anything)
+   the post-hook does to the user's config.
 
 ## Troubleshooting
 
-- **Menu doesn't appear in Dolphin** — run `kbuildsycoca6 --noincremental`,
-  or log out and back in.
-- **`matugen` errors about "multiple source colors"** — the generator script
-  already passes `--prefer saturation`; keep that flag if you customize.
-- **An app didn't refresh** — check `~/.cache/matugen-generate.log` for the
-  post-hook output. The post-hook for that app may need an additional
-  one-time setup step (see *Per-app notes*).
-- **KDE doesn't refresh** — verify `jeepney` or `dbus-send` is available;
-  `kde-apply-scheme.py` uses one of them to signal `notifyChange` to all KDE
-  apps.
+| Problem | Fix |
+|---|---|
+| Dolphin menu missing | `kbuildsycoca6 --noincremental` or log out/in |
+| `matugen` "multiple source colors" | keep the `--prefer saturation` flag |
+| App didn't refresh | check `~/.cache/matugen-generate.log` |
+| KDE colors stuck | re-pick **Matugen** in *System Settings → Colors* once |
 
 ## Credits
 
-- Templates, post-hook patterns, and the KDE + GTK helper scripts adapted
-  from [noctalia-shell][noctalia] by Ly-sec.
-- matugen by [InioX][matugen].
-- Dolphin service-menu pattern adapted from
-  [this r/kde post](https://www.reddit.com/r/kde/comments/1tprakb/kde_plasma_6_i_automated_material_you_colors/)
-  by u/Narcrop_.
+Templates and helper scripts adapted from [noctalia-shell][noctalia] (GPLv3).
+Matugen by [InioX][matugen]. Dolphin service-menu pattern from
+[this r/kde post](https://www.reddit.com/r/kde/comments/1tprakb/kde_plasma_6_i_automated_material_you_colors/)
+by u/Narcrop_.
+
+[mtmpl]: https://github.com/InioX/matugen/blob/main/docs/configuration/templates.md
 
 ## License
 
-GPLv3. See [LICENSE](LICENSE) for the full text.
-
-Includes code adapted from [noctalia-shell][noctalia] (`scripts/template-apply.sh`,
-`scripts/python/gtk-refresh.py`).
+GPLv3. See [LICENSE](LICENSE).
