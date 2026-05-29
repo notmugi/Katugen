@@ -33,8 +33,9 @@ export KATUGEN_MODE="$MODE"
     command -v plasma-apply-wallpaperimage >/dev/null 2>&1 && \
         plasma-apply-wallpaperimage "$WALLPAPER_PATH" || true
 
-    # Generate. --prefer saturation: livelier accents + non-interactive safe.
-    matugen image --mode "$MODE" --prefer saturation "$WALLPAPER_PATH"
+    # Generate. --source-color-index 0 picks the most dominant color (by area)
+    # and is non-interactive (no "multiple source colors" prompt).
+    matugen image --mode "$MODE" --source-color-index 0 "$WALLPAPER_PATH"
 
     # KDE: bounce off the opposite Breeze so Plasma re-reads matugen.colors.
     if command -v plasma-apply-colorscheme >/dev/null 2>&1; then
