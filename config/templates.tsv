@@ -32,8 +32,10 @@ ghostty	terminal/ghostty	~/.config/ghostty	~/.config/ghostty/themes/matugen
 kitty	terminal/kitty.conf	~/.config/kitty	~/.config/kitty/matugen.conf
 wezterm	terminal/wezterm.toml	~/.config/wezterm	~/.config/wezterm/colors/matugen.toml
 
-# ---- Shell prompt ----
-starship	terminal/starship.toml	~/.config	~/.config/starship.toml.matugen
+# starship: dropped — starship has no `include` directive, so a separate
+# matugen-rendered TOML cannot be merged into the user's starship.toml
+# without hand-editing. If you want it back, set output_path to your
+# starship.toml directly (will overwrite your customizations).
 
 # ---- TUI apps ----
 btop	btop.theme	~/.config/btop	~/.config/btop/themes/matugen.theme
@@ -42,8 +44,11 @@ helix	helix.toml	~/.config/helix	~/.config/helix/themes/matugen.toml
 yazi	yazi.toml	~/.config/yazi	~/.config/yazi/theme.toml.matugen
 zathura	zathurarc	~/.config/zathura	~/.config/zathura/matugenrc
 
+# vscode: dropped — code.json is a VS Code *theme extension* descriptor, not
+# a file VS Code reads on its own. Packaging it as an extension is out of
+# scope. Use a wallpaper-aware extension like "Theme Wallpaper" instead.
+
 # ---- Editors ----
-vscode	code.json	~/.config/Code/User	~/.config/Code/User/matugen-colors.json
 zed	zed.json	~/.config/zed	~/.config/zed/themes/matugen.json
 emacs	emacs.el	~/.config/emacs	~/.config/emacs/matugen-theme.el
 
@@ -77,8 +82,9 @@ walker	walker.css	~/.config/walker	~/.config/walker/themes/matugen.css
 vicinae	vicinae.toml	~/.config/vicinae	~/.config/vicinae/matugen.toml
 
 # ---- Noctalia shell ----
-noctalia	noctalia.json	~/.config/noctalia	~/.config/noctalia/Settings/Colors.json
+noctalia	noctalia.json	~/.config/noctalia	~/.config/noctalia/colors.json
 
 # ---- Zen Browser ----
-zen-userchrome	zen-browser/zen-userChrome.css	~/.zen	~/.zen/matugen-userChrome.css
-zen-usercontent	zen-browser/zen-userContent.css	~/.zen	~/.zen/matugen-userContent.css
+# Symlink these into your active profile's chrome/ directory.
+zen-userchrome	zen-browser/zen-userChrome.css	~/.zen	~/.zen/matugen-chrome/userChrome.css
+zen-usercontent	zen-browser/zen-userContent.css	~/.zen	~/.zen/matugen-chrome/userContent.css
