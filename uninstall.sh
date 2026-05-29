@@ -32,6 +32,7 @@ XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
 
 SCRIPT_DST="$HOME/.local/bin/matugen-generate.sh"
 SERVICEMENU_DST="$XDG_DATA_HOME/kio/servicemenus/matugen-generate.desktop"
+HELPER_DIR="$HOME/.local/share/katugen"
 CONFIG_FILE="$XDG_CONFIG_HOME/matugen/config.toml"
 TEMPLATES_DIR="$XDG_CONFIG_HOME/matugen/templates"
 
@@ -47,6 +48,7 @@ remove() {
 echo "==> Uninstalling katugen"
 remove "$SERVICEMENU_DST"
 remove "$SCRIPT_DST"
+remove "$HELPER_DIR"
 
 if [[ $PURGE -eq 1 ]]; then
     remove "$CONFIG_FILE"

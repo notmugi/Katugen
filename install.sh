@@ -31,6 +31,12 @@ CONFIG_FILE="$MATUGEN_DIR/config.toml"
 BIN_DIR="$HOME/.local/bin"
 SCRIPT_DST="$BIN_DIR/matugen-generate.sh"
 
+# Helper scripts (template-apply.sh + python helpers) live alongside the
+# generator so post_hook commands have a stable, user-writable location.
+HELPER_DIR="$HOME/.local/share/katugen"
+APPLY_DST="$HELPER_DIR/template-apply.sh"
+PYDIR_DST="$HELPER_DIR/python"
+
 SERVICEMENU_DIR="$XDG_DATA_HOME/kio/servicemenus"
 SERVICEMENU_DST="$SERVICEMENU_DIR/matugen-generate.desktop"
 
@@ -136,22 +142,27 @@ cat > "$tmp_config" <<'EOF'
 [config]
 EOF
 
-# Always-on minimum dirs (kcolorscheme + pywalfox cache live outside ~/.config)
+# Always-on minimum dirs.
 mkdir -p \
     "$XDG_DATA_HOME/color-schemes" \
     "$XDG_CACHE_HOME/wal" \
+    "$XDG_CACHE_HOME/katugen/zen-browser" \
     "$BIN_DIR" \
-    "$SERVICEMENU_DIR"
+    "$SERVICEMENU_DIR" \
+    "$HELPER_DIR" \
+    "$PYDIR_DST"
 
 enabled=0
 skipped=0
 declare -a enabled_names=()
 
-while IFS=$'\t' read -r id rel marker out; do
-    # Strip surrounding whitespace and skip blank/comment lines.
-    id="${id%%#*}"
-    [[ -z "${id// }" ]] && continue
-    [[ "$id" == "id" ]] && continue   # accidental header
+# Read 5 TAB-separated fields; the 5th (post_hook) may contain spaces but no tabs.
+while IFS=$'\t' read -r id rel marker out hook; do
+    # Strip comments and blank lines.
+    id_clean="${id%%#*}"
+    [[ -z "${id_clean// }" ]] && continue
+    [[ "$id" == \#* ]] && continue
+    [[ "$id" == "id" ]] && continue   # header row guard
 
     if [[ -z "${rel:-}" || -z "${marker:-}" || -z "${out:-}" ]]; then
         warn "Malformed registry row, skipping: id=$id"
@@ -161,7 +172,7 @@ while IFS=$'\t' read -r id rel marker out; do
     src="$TEMPLATES_DIR/$rel"
     if [[ ! -f "$src" ]]; then
         warn "Template file missing in repo: $rel (skipping)"
-        ((skipped++)) || true
+        skipped=$((skipped+1))
         continue
     fi
 
@@ -169,7 +180,10 @@ while IFS=$'\t' read -r id rel marker out; do
         enable=1
     else
         expanded_marker="$(expand_tilde "$marker")"
-        if [[ -d "$expanded_marker" ]]; then
+        # Marker can be a directory (e.g. ~/.config/foo) or a specific file
+        # (e.g. ~/.config/foo/foo.conf). The latter is preferred when an
+        # app's empty config dir might exist for unrelated reasons.
+        if [[ -e "$expanded_marker" ]]; then
             enable=1
         else
             enable=0
@@ -181,15 +195,28 @@ while IFS=$'\t' read -r id rel marker out; do
         expanded_out="$(expand_tilde "$out")"
         mkdir -p "$(dirname "$expanded_out")"
 
+        # Resolve @APPLY@ / @PYDIR@ placeholders in the post_hook.
+        if [[ -n "${hook:-}" && "$hook" != "NONE" ]]; then
+            resolved_hook="${hook//@APPLY@/$APPLY_DST}"
+            resolved_hook="${resolved_hook//@PYDIR@/$PYDIR_DST}"
+        else
+            resolved_hook=""
+        fi
+
         {
             printf '\n[templates.%s]\n' "$id"
             printf "input_path  = '%s/%s'\n" "$TEMPLATES_DIR" "$rel"
             printf "output_path = '%s'\n" "$out"
+            if [[ -n "$resolved_hook" ]]; then
+                # Escape any single quotes in the hook for TOML literal strings.
+                escaped="${resolved_hook//\'/\'\\\'\'}"
+                printf "post_hook   = '%s'\n" "$escaped"
+            fi
         } >> "$tmp_config"
         enabled_names+=("$id")
-        ((enabled++)) || true
+        enabled=$((enabled+1))
     else
-        ((skipped++)) || true
+        skipped=$((skipped+1))
     fi
 done < "$REGISTRY"
 
@@ -200,6 +227,15 @@ printf '       %s\n' "${enabled_names[@]}" | column -c 80 || printf '       %s\n
 if [[ $skipped -gt 0 ]]; then
     skip "Skipped $skipped (app config dir not found — install that app and re-run)"
 fi
+
+# ---------------------------------------------------------------------------
+# Install helper scripts (template-apply.sh + python helpers)
+# ---------------------------------------------------------------------------
+info "Installing helper scripts → $HELPER_DIR"
+install_if_changed "$REPO_DIR/scripts/template-apply.sh"  "$APPLY_DST" 0755
+for py in "$REPO_DIR"/scripts/python/*.py; do
+    install_if_changed "$py" "$PYDIR_DST/$(basename "$py")" 0755
+done
 
 # ---------------------------------------------------------------------------
 # Install generator script

@@ -1,9 +1,19 @@
 #!/usr/bin/env bash
 # matugen-generate.sh
-# Generate a Material You colorscheme from an image using matugen,
-# then apply the KDE color scheme and nudge GTK apps to refresh.
+# Generate a Material You colorscheme from an image and apply it system-wide.
 #
 # Usage: matugen-generate.sh <light|dark> /path/to/image
+#
+# Per-template integration (auto-include into user configs, live reloads,
+# KDE+GTK signaling, pywalfox refresh, etc.) is driven by post_hook entries
+# in ~/.config/matugen/config.toml, which are generated from katugen's
+# templates.tsv at install time and call into:
+#   - scripts/template-apply.sh   (one big bash case per app)
+#   - scripts/python/kde-apply-scheme.py
+#   - scripts/python/gtk-refresh.py
+#
+# The KATUGEN_MODE env var is exported here so post-hooks can branch on
+# light vs dark when needed (e.g. pywalfox, GTK).
 
 set -euo pipefail
 
@@ -20,9 +30,7 @@ if [[ "$MODE" != "light" && "$MODE" != "dark" ]]; then
     exit 1
 fi
 
-# Resolve absolute path (handles spaces, symlinks, mounted drives, etc.)
 WALLPAPER_PATH="$(realpath -- "$IMAGE")"
-
 if [[ ! -f "$WALLPAPER_PATH" ]]; then
     echo "File not found: $WALLPAPER_PATH" >&2
     exit 1
@@ -31,52 +39,27 @@ fi
 LOG="$HOME/.cache/matugen-generate.log"
 mkdir -p "$(dirname "$LOG")"
 
+export KATUGEN_MODE="$MODE"
+
 {
     echo "==== $(date -Iseconds) | mode=$MODE | image=$WALLPAPER_PATH ===="
 
-    # 1. Apply wallpaper natively in Plasma (if available).
+    # 1. Apply the wallpaper natively in Plasma (best-effort).
     if command -v plasma-apply-wallpaperimage >/dev/null 2>&1; then
         plasma-apply-wallpaperimage "$WALLPAPER_PATH" || true
     fi
 
-    # 2. Generate themes via matugen.
-    #    --prefer saturation gives livelier accents and also avoids the
-    #    "multiple source colors found" prompt in non-interactive runs.
+    # 2. Generate every enabled template via matugen. Per-template post_hooks
+    #    handle KDE color application, GTK refresh, terminal/app integration,
+    #    pywalfox push, and Plasma/Hyprland/Sway reloads.
+    #    --prefer saturation: livelier accents; also avoids the
+    #    "multiple source colors found" prompt non-interactively.
     matugen image --mode "$MODE" --prefer saturation "$WALLPAPER_PATH"
-
-    # 3. Force Plasma to flush + apply the generated color scheme.
-    if command -v plasma-apply-colorscheme >/dev/null 2>&1; then
-        # Bounce off another scheme so KDE actually re-reads the file.
-        if [[ "$MODE" == "dark" ]]; then
-            plasma-apply-colorscheme BreezeLight >/dev/null 2>&1 || true
-        else
-            plasma-apply-colorscheme BreezeDark  >/dev/null 2>&1 || true
-        fi
-        plasma-apply-colorscheme matugen || true
-    fi
-
-    # 4. Nudge GTK apps to pick up the new light/dark preference.
-    if command -v gsettings >/dev/null 2>&1; then
-        if [[ "$MODE" == "dark" ]]; then
-            gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'  || true
-        else
-            gsettings set org.gnome.desktop.interface color-scheme 'prefer-light' || true
-        fi
-    fi
-
-    # 5. Push the freshly written ~/.cache/wal/colors.json to Firefox
-    #    via the pywalfox native-messaging host, and set the light/dark variant.
-    #    Requires the pywalfox Firefox extension to be installed and the
-    #    native host registered (`pywalfox install` once, per-user).
-    if command -v pywalfox >/dev/null 2>&1; then
-        pywalfox update      || true
-        pywalfox "$MODE"     || true
-    fi
 
     echo "Done."
 } >>"$LOG" 2>&1
 
-# Desktop notification (non-fatal if unavailable).
+# Notify (non-fatal if unavailable).
 if command -v notify-send >/dev/null 2>&1; then
     notify-send -a "Matugen" "Colorscheme generated (${MODE})" "$(basename "$WALLPAPER_PATH")"
 fi
