@@ -64,6 +64,15 @@ mkdir -p "$(dirname "$LOG")"
         fi
     fi
 
+    # 5. Push the freshly written ~/.cache/wal/colors.json to Firefox
+    #    via the pywalfox native-messaging host, and set the light/dark variant.
+    #    Requires the pywalfox Firefox extension to be installed and the
+    #    native host registered (`pywalfox install` once, per-user).
+    if command -v pywalfox >/dev/null 2>&1; then
+        pywalfox update      || true
+        pywalfox "$MODE"     || true
+    fi
+
     echo "Done."
 } >>"$LOG" 2>&1
 

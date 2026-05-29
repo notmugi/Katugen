@@ -79,7 +79,7 @@ After the first generation run, point each app at its `matugen` theme file once:
 - **Qt apps** — in `qt5ct` / `qt6ct`, set *Color Scheme → matugen*
 - **BetterDiscord / Vesktop** — enable `matugen.theme.css` in the themes panel
 - **KDE** — *System Settings → Colors → Matugen* (also auto-applied each run)
-- **Firefox** — install the [pywalfox add-on](https://github.com/Frewacom/pywalfox-native) and the `pywalfox` helper; it reads `~/.cache/wal/colors.json`
+- **Firefox** — install the [pywalfox add-on](https://github.com/Frewacom/pywalfox-native) and the `pywalfox` helper, then run `pywalfox install` once. After that the generator script automatically runs `pywalfox update` and `pywalfox light`/`pywalfox dark` on every regeneration, so Firefox theming refreshes live (no manual reload needed).
 
 ## Uninstall
 
