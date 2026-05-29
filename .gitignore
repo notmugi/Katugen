@@ -1,0 +1,7 @@
+# Editor / OS
+*.swp
+*.swo
+.DS_Store
+
+# Installer backups (in case someone runs install.sh inside the repo)
+*.bak-*

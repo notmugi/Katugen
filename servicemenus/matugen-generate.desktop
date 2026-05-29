@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Service
+MimeType=image/*;
+Actions=MatugenLight;MatugenDark;
+X-KDE-Submenu=Generate
+X-KDE-ServiceTypes=KonqPopupMenu/Plugin
+
+[Desktop Action MatugenLight]
+Name=Light
+Icon=weather-clear
+Exec=@SCRIPT@ light %f
+
+[Desktop Action MatugenDark]
+Name=Dark
+Icon=weather-clear-night
+Exec=@SCRIPT@ dark %f
