@@ -37,13 +37,12 @@ export KATUGEN_MODE="$MODE"
     # and is non-interactive (no "multiple source colors" prompt).
     matugen image --mode "$MODE" --source-color-index 0 "$WALLPAPER_PATH"
 
-    # KDE: bounce off the opposite Breeze so Plasma re-reads matugen.colors.
-    if command -v plasma-apply-colorscheme >/dev/null 2>&1; then
-        if [[ "$MODE" == "dark" ]]; then
-            plasma-apply-colorscheme BreezeLight >/dev/null 2>&1 || true
-        else
-            plasma-apply-colorscheme BreezeDark  >/dev/null 2>&1 || true
-        fi
+    # KDE: force Plasma to re-read the regenerated matugen.colors file.
+    # plasma-apply-colorscheme refuses to re-apply the "current" scheme, so
+    # we clear the scheme name in kdeglobals first, then re-apply.
+    if command -v plasma-apply-colorscheme >/dev/null 2>&1 && \
+       command -v kwriteconfig6 >/dev/null 2>&1; then
+        kwriteconfig6 --file kdeglobals --group General --key ColorScheme ""
         plasma-apply-colorscheme matugen || true
     fi
 
