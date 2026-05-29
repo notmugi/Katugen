@@ -47,10 +47,10 @@ For each enabled template, matugen runs its post_hook:
 
 ### Auto-detection
 
-You don't pick which integrations to enable. The installer reads
-[`config/templates.tsv`](config/templates.tsv) and only wires up apps whose
-config dir actually exists. Re-run `./install.sh` after installing a new app
-and it'll be picked up automatically.
+You don't pick which integrations to enable. The installer walks an inline
+"Application registry" section in [`install.sh`](install.sh) and only wires
+up apps whose config dir/file actually exists. Re-run `./install.sh` after
+installing a new app and it'll be picked up automatically.
 
 Two integrations are *always* installed: the KDE color scheme (the point of
 katugen) and the pywalfox cache.
@@ -125,14 +125,12 @@ the `include`/`@import` lines they wrote stay until you remove them by hand.
 
 ## Customizing
 
-- **Add a new app** → drop a matugen-syntax template into `templates/`, add a
-  row to `config/templates.tsv` (`id  template_relpath  marker_dir
-  output_path  post_hook`), re-run `./install.sh`.
+- **Add a new app** → drop a matugen-syntax template into `templates/`, add
+  a line to the *Application registry* section of `install.sh` using
+  `add_if <marker> <id> <template> <output> [post-hook]`, re-run
+  `./install.sh`.
 - **Change a template** → edit under `templates/` and re-run.
 - **Change a post-hook** → edit `scripts/template-apply.sh` and re-run.
-
-Template registry format: see comments at the top of
-[`config/templates.tsv`](config/templates.tsv).
 
 Template syntax reference: [matugen template docs][mtmpl].
 

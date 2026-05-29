@@ -3,17 +3,17 @@
 # Copyright (c) 2026 mugi (https://github.com/notmugi)
 # install.sh — Install katugen.
 #
-# - Copies *every* matugen template from this repo into ~/.config/matugen/templates.
-# - For each template, checks whether the target app's config dir actually
-#   exists on this system; only enables the template if it does. Two templates
-#   (the KDE color scheme and the pywalfox cache) are always installed.
-# - Generates ~/.config/matugen/config.toml dynamically from config/templates.tsv.
-# - Installs ~/.local/bin/matugen-generate.sh and the Dolphin service menu.
+# - Copies every matugen template from this repo into ~/.config/matugen/templates.
+# - Detects which apps you have installed by checking for marker files/dirs,
+#   and only wires up templates for those apps. Two templates (the KDE color
+#   scheme and the pywalfox cache) are always installed.
+# - Generates ~/.config/matugen/config.toml from the inline registration calls
+#   in this script's "Application registry" section below.
+# - Installs ~/.local/bin/matugen-generate.sh, helper scripts in
+#   ~/.local/share/katugen/, and the Dolphin service menu.
 #
-# Re-running this script is safe: it rewrites the matugen config in place so
-# newly installed apps get picked up automatically, while existing user files
-# (the script and the .desktop entry) are backed up to *.bak-YYYYmmddHHMMSS
-# only when they actually differ from the new version.
+# Re-running this script is safe (idempotent): it only overwrites files whose
+# content actually changed, backing up the old version to *.bak-YYYYmmddHHMMSS.
 
 set -euo pipefail
 
@@ -33,16 +33,14 @@ CONFIG_FILE="$MATUGEN_DIR/config.toml"
 BIN_DIR="$HOME/.local/bin"
 SCRIPT_DST="$BIN_DIR/matugen-generate.sh"
 
-# Helper scripts (template-apply.sh + python helpers) live alongside the
-# generator so post_hook commands have a stable, user-writable location.
+# Helper scripts live alongside the generator so post_hook commands have a
+# stable, user-writable location.
 HELPER_DIR="$HOME/.local/share/katugen"
 APPLY_DST="$HELPER_DIR/template-apply.sh"
 PYDIR_DST="$HELPER_DIR/python"
 
 SERVICEMENU_DIR="$XDG_DATA_HOME/kio/servicemenus"
 SERVICEMENU_DST="$SERVICEMENU_DIR/matugen-generate.desktop"
-
-REGISTRY="$REPO_DIR/config/templates.tsv"
 
 STAMP="$(date +%Y%m%d%H%M%S)"
 
@@ -57,19 +55,6 @@ ok()    { printf '%s  ✓%s %s\n'         "$c_green"  "$c_reset" "$*"; }
 skip()  { printf '%s  ·%s %s%s%s\n'     "$c_dim"    "$c_reset" "$c_dim" "$*" "$c_reset"; }
 warn()  { printf '%s  !%s %s\n'         "$c_yellow" "$c_reset" "$*"; }
 err()   { printf '%s ✗%s %s\n' "$c_red" "$c_reset" "$*" >&2; }
-
-# ---------------------------------------------------------------------------
-# Path expansion (~ -> $HOME)
-# ---------------------------------------------------------------------------
-expand_tilde() {
-    local p="$1"
-    # shellcheck disable=SC2088  # literal tilde patterns, not expansion
-    case "$p" in
-        '~')   echo "$HOME" ;;
-        '~/'*) echo "$HOME/${p#'~/'}" ;;
-        *)     echo "$p" ;;
-    esac
-}
 
 # ---------------------------------------------------------------------------
 # Safe replace: only overwrite if content differs; back up the old version.
@@ -89,6 +74,74 @@ install_if_changed() {
     fi
     install -m "$mode" "$src" "$dst"
     ok "wrote $dst"
+}
+
+# ---------------------------------------------------------------------------
+# State accumulated during the "Application registry" section below.
+# `register` appends one [templates.<id>] block to $tmp_config, and only when
+# the marker exists. `add_if` is a tiny conditional sugar.
+# ---------------------------------------------------------------------------
+tmp_config=""        # populated below
+enabled=0
+skipped=0
+enabled_names=()
+
+# register <id> <template_relpath> <output_path> [post_hook_command]
+# Always emits the block. Use add_if to guard.
+register() {
+    local id="$1" rel="$2" out="$3" hook="${4:-}"
+    local src="$TEMPLATES_DIR/$rel"
+    if [[ ! -f "$src" ]]; then
+        warn "Template missing in repo: $rel (skipping $id)"
+        skipped=$((skipped+1))
+        return 0
+    fi
+
+    # Ensure the output's parent directory exists so matugen can write there.
+    local expanded_out="${out/#\~/$HOME}"
+    mkdir -p "$(dirname "$expanded_out")"
+
+    {
+        printf '\n[templates.%s]\n' "$id"
+        printf "input_path  = '%s/%s'\n" "$TEMPLATES_DIR" "$rel"
+        printf "output_path = '%s'\n" "$out"
+        if [[ -n "$hook" ]]; then
+            # Escape single quotes for TOML literal string.
+            local escaped="${hook//\'/\'\\\'\'}"
+            printf "post_hook   = '%s'\n" "$escaped"
+        fi
+    } >> "$tmp_config"
+    enabled_names+=("$id")
+    enabled=$((enabled+1))
+}
+
+# add_if <marker_path> <register args...>
+# Marker may be a directory or a file. ~ is expanded to $HOME.
+add_if() {
+    local marker="$1"; shift
+    local expanded="${marker/#\~/$HOME}"
+    if [[ -e "$expanded" ]]; then
+        register "$@"
+    else
+        skipped=$((skipped+1))
+    fi
+}
+
+# Convenience: Discord-style apps register both Noctalia themes (material +
+# midnight) for one client at once.
+add_discord_if() {
+    local marker="$1" client_dir="$2"
+    local expanded="${marker/#\~/$HOME}"
+    if [[ -e "$expanded" ]]; then
+        register "discord-material-$client_dir" \
+                 "discord-material.css" \
+                 "$marker/themes/matugen-material.theme.css"
+        register "discord-midnight-$client_dir" \
+                 "discord-midnight.css" \
+                 "$marker/themes/matugen-midnight.theme.css"
+    else
+        skipped=$((skipped+2))
+    fi
 }
 
 # ---------------------------------------------------------------------------
@@ -120,7 +173,6 @@ fi
 # ---------------------------------------------------------------------------
 info "Installing matugen templates → $TEMPLATES_DIR"
 mkdir -p "$TEMPLATES_DIR"
-# Use rsync if available for in-place updates without clobbering unrelated files.
 if command -v rsync >/dev/null 2>&1; then
     rsync -a --delete "$REPO_DIR/templates/" "$TEMPLATES_DIR/"
 else
@@ -131,18 +183,9 @@ fi
 ok "Templates synced"
 
 # ---------------------------------------------------------------------------
-# Generate matugen config.toml from registry, skipping apps not present.
+# Detect installed apps and build the matugen config.
 # ---------------------------------------------------------------------------
 info "Detecting installed apps and generating $CONFIG_FILE"
-tmp_config="$(mktemp)"
-trap 'rm -f "$tmp_config"' EXIT
-
-cat > "$tmp_config" <<'EOF'
-# Matugen configuration — generated by katugen install.sh
-# Re-run install.sh to refresh this file when you install/uninstall apps.
-
-[config]
-EOF
 
 # Always-on minimum dirs.
 mkdir -p \
@@ -154,73 +197,188 @@ mkdir -p \
     "$HELPER_DIR" \
     "$PYDIR_DST"
 
-enabled=0
-skipped=0
-declare -a enabled_names=()
+tmp_config="$(mktemp)"
+trap 'rm -f "$tmp_config"' EXIT
 
-# Read 5 TAB-separated fields; the 5th (post_hook) may contain spaces but no tabs.
-while IFS=$'\t' read -r id rel marker out hook; do
-    # Strip comments and blank lines.
-    id_clean="${id%%#*}"
-    [[ -z "${id_clean// }" ]] && continue
-    [[ "$id" == \#* ]] && continue
-    [[ "$id" == "id" ]] && continue   # header row guard
+cat > "$tmp_config" <<'EOF'
+# Matugen configuration — generated by katugen install.sh
+# Re-run install.sh to refresh this file when you install/uninstall apps.
 
-    if [[ -z "${rel:-}" || -z "${marker:-}" || -z "${out:-}" ]]; then
-        warn "Malformed registry row, skipping: id=$id"
-        continue
-    fi
+[config]
+EOF
 
-    src="$TEMPLATES_DIR/$rel"
-    if [[ ! -f "$src" ]]; then
-        warn "Template file missing in repo: $rel (skipping)"
-        skipped=$((skipped+1))
-        continue
-    fi
+# ===========================================================================
+# Application registry — the only place to edit when adding/changing an app.
+#
+# Each block is either:
+#   register   <id> <template> <output> [post-hook]
+#       — always installed (unconditional)
+#   add_if     <marker> <id> <template> <output> [post-hook]
+#       — installed iff <marker> exists (file OR directory)
+#
+# `<post-hook>` may reference:
+#   $APPLY_DST  → ~/.local/share/katugen/template-apply.sh
+#   $PYDIR_DST  → ~/.local/share/katugen/python
+#   $KATUGEN_MODE  → "light" or "dark" (exported by matugen-generate.sh)
+# ===========================================================================
 
-    if [[ "$marker" == "ALWAYS" ]]; then
-        enable=1
-    else
-        expanded_marker="$(expand_tilde "$marker")"
-        # Marker can be a directory (e.g. ~/.config/foo) or a specific file
-        # (e.g. ~/.config/foo/foo.conf). The latter is preferred when an
-        # app's empty config dir might exist for unrelated reasons.
-        if [[ -e "$expanded_marker" ]]; then
-            enable=1
-        else
-            enable=0
-        fi
-    fi
+# ---- Always-on -----------------------------------------------------------
+register   kcolorscheme   kcolorscheme.colors \
+           "~/.local/share/color-schemes/matugen.colors"
+register   pywalfox       pywalfox.json \
+           "~/.cache/wal/colors.json" \
+           "$APPLY_DST pywalfox \"\$KATUGEN_MODE\""
 
-    if [[ $enable -eq 1 ]]; then
-        # Ensure the output's parent directory exists so matugen can write there.
-        expanded_out="$(expand_tilde "$out")"
-        mkdir -p "$(dirname "$expanded_out")"
+# ---- GTK ------------------------------------------------------------------
+add_if "~/.config/gtk-3.0" \
+       gtk3   gtk3.css   "~/.config/gtk-3.0/matugen.css"
+add_if "~/.config/gtk-4.0" \
+       gtk4   gtk4.css   "~/.config/gtk-4.0/matugen.css" \
+       "$PYDIR_DST/gtk-refresh.py \"\$KATUGEN_MODE\""
 
-        # Resolve @APPLY@ / @PYDIR@ placeholders in the post_hook.
-        if [[ -n "${hook:-}" && "$hook" != "NONE" ]]; then
-            resolved_hook="${hook//@APPLY@/$APPLY_DST}"
-            resolved_hook="${resolved_hook//@PYDIR@/$PYDIR_DST}"
-        else
-            resolved_hook=""
-        fi
+# ---- Qt (qt5ct / qt6ct) ---------------------------------------------------
+add_if "~/.config/qt5ct" \
+       qt5ct   qtct.conf   "~/.config/qt5ct/colors/matugen.conf"
+add_if "~/.config/qt6ct" \
+       qt6ct   qtct.conf   "~/.config/qt6ct/colors/matugen.conf"
 
-        {
-            printf '\n[templates.%s]\n' "$id"
-            printf "input_path  = '%s/%s'\n" "$TEMPLATES_DIR" "$rel"
-            printf "output_path = '%s'\n" "$out"
-            if [[ -n "$resolved_hook" ]]; then
-                # Escape any single quotes in the hook for TOML literal strings.
-                escaped="${resolved_hook//\'/\'\\\'\'}"
-                printf "post_hook   = '%s'\n" "$escaped"
-            fi
-        } >> "$tmp_config"
-        enabled_names+=("$id")
-        enabled=$((enabled+1))
-    else
-        skipped=$((skipped+1))
-    fi
-done < "$REGISTRY"
+# ---- Terminals — output in themes/, post-hook wires into main config ------
+add_if "~/.config/alacritty" \
+       alacritty   terminal/alacritty.toml \
+       "~/.config/alacritty/themes/matugen.toml" \
+       "$APPLY_DST alacritty"
+add_if "~/.config/foot" \
+       foot   terminal/foot   "~/.config/foot/themes/matugen" \
+       "$APPLY_DST foot"
+add_if "~/.config/ghostty" \
+       ghostty   terminal/ghostty   "~/.config/ghostty/themes/matugen" \
+       "$APPLY_DST ghostty"
+add_if "~/.config/kitty" \
+       kitty   terminal/kitty.conf   "~/.config/kitty/themes/matugen.conf" \
+       "$APPLY_DST kitty"
+add_if "~/.config/wezterm" \
+       wezterm   terminal/wezterm.toml \
+       "~/.config/wezterm/colors/Matugen.toml" \
+       "$APPLY_DST wezterm"
+
+# ---- Shell prompt — palette block inserted into starship.toml -------------
+# Starship has no `include` directive; the post-hook splices a marker-bracketed
+# block into the user's starship.toml. Marker is the user's actual config.
+add_if "~/.config/starship.toml" \
+       starship   terminal/starship.toml \
+       "~/.cache/katugen/starship-palette.toml" \
+       "$APPLY_DST starship"
+
+# ---- TUI apps -------------------------------------------------------------
+add_if "~/.config/btop" \
+       btop   btop.theme   "~/.config/btop/themes/matugen.theme" \
+       "$APPLY_DST btop"
+add_if "~/.config/cava/config" \
+       cava   cava.ini   "~/.config/cava/themes/matugen" \
+       "$APPLY_DST cava"
+add_if "~/.config/helix" \
+       helix   helix.toml   "~/.config/helix/themes/matugen.toml"
+add_if "~/.config/yazi" \
+       yazi   yazi.toml \
+       "~/.config/yazi/flavors/matugen.yazi/flavor.toml" \
+       "$APPLY_DST yazi"
+add_if "~/.config/zathura" \
+       zathura   zathurarc   "~/.config/zathura/matugenrc" \
+       "$APPLY_DST zathura"
+
+# ---- Editors --------------------------------------------------------------
+add_if "~/.config/zed" \
+       zed   zed.json   "~/.config/zed/themes/matugen.json"
+add_if "~/.config/emacs" \
+       emacs   emacs.el   "~/.config/emacs/matugen-theme.el"
+
+# vscode dropped: requires an installed VS Code theme extension and dynamic
+# resolution of its install path. Out of scope.
+
+# ---- Discord clients (both Noctalia themes for each detected client) ------
+add_discord_if "~/.config/vesktop"                                           vesktop
+add_discord_if "~/.config/BetterDiscord"                                     bd
+add_discord_if "~/.config/webcord"                                           webcord
+add_discord_if "~/.config/armcord"                                           armcord
+add_discord_if "~/.config/equibop"                                           equibop
+add_discord_if "~/.config/Equicord"                                          equicord
+add_discord_if "~/.config/Vencord"                                           vencord
+add_discord_if "~/.var/app/com.discordapp.Discord/config/Vencord"            vencord-flatpak
+add_discord_if "~/.config/dorion"                                            dorion
+add_discord_if "~/.config/lightcord"                                         lightcord
+
+# ---- Spicetify — overwrites the Comfy theme's color.ini ------------------
+add_if "~/.config/spicetify/Themes/Comfy" \
+       spicetify   spicetify.ini \
+       "~/.config/spicetify/Themes/Comfy/color.ini" \
+       "spicetify -q apply --no-restart"
+
+# ---- Telegram Desktop -----------------------------------------------------
+add_if "~/.config/telegram-desktop" \
+       telegram   telegram.tdesktop-theme \
+       "~/.config/telegram-desktop/themes/matugen.tdesktop-theme"
+
+# ---- Steam (Material-Theme skin must be installed separately) ------------
+add_if "~/.steam/steam/steamui/skins/Material-Theme" \
+       steam   steam.css \
+       "~/.steam/steam/steamui/skins/Material-Theme/css/main/colors/matugen.css"
+
+# ---- Wayland compositors --------------------------------------------------
+add_if "~/.config/hypr/hyprland.conf" \
+       hyprland   hyprland.conf \
+       "~/.config/hypr/matugen/matugen-colors.conf"
+add_if "~/.config/hypr/hyprland.conf" \
+       hyprland-lua   hyprland.lua \
+       "~/.config/hypr/matugen/matugen-colors.lua" \
+       "$APPLY_DST hyprland"
+add_if "~/.config/hyprtoolkit" \
+       hyprtoolkit   hyprtoolkit.conf \
+       "~/.config/hypr/hyprtoolkit.conf"
+add_if "~/.config/niri/config.kdl" \
+       niri   niri.kdl   "~/.config/niri/matugen.kdl" \
+       "$APPLY_DST niri"
+add_if "~/.config/sway/config" \
+       sway   sway   "~/.config/sway/matugen" \
+       "$APPLY_DST sway"
+add_if "~/.config/labwc/rc.xml" \
+       labwc   labwc.conf   "~/.config/labwc/themerc-override" \
+       "$APPLY_DST labwc"
+add_if "~/.config/mango/config.conf" \
+       mango   mango.conf   "~/.config/mango/matugen.conf" \
+       "$APPLY_DST mango"
+add_if "~/.config/scroll/config" \
+       scroll   scroll   "~/.config/scroll/matugen" \
+       "$APPLY_DST scroll"
+
+# ---- App launchers --------------------------------------------------------
+add_if "~/.config/fuzzel" \
+       fuzzel   fuzzel.conf   "~/.config/fuzzel/themes/matugen" \
+       "$APPLY_DST fuzzel"
+add_if "~/.config/walker/config.toml" \
+       walker   walker.css \
+       "~/.config/walker/themes/matugen/style.css" \
+       "$APPLY_DST walker"
+add_if "~/.local/share/vicinae" \
+       vicinae   vicinae.toml \
+       "~/.local/share/vicinae/themes/matugen.toml" \
+       "vicinae theme set matugen"
+
+# ---- Noctalia shell — colors.json read directly --------------------------
+add_if "~/.config/noctalia" \
+       noctalia   noctalia.json   "~/.config/noctalia/colors.json"
+
+# ---- Zen Browser — staged in cache, post-hook auto-imports into profiles -
+add_if "~/.zen" \
+       zen-userchrome   zen-browser/zen-userChrome.css \
+       "~/.cache/katugen/zen-browser/zen-userChrome.css"
+add_if "~/.zen" \
+       zen-usercontent   zen-browser/zen-userContent.css \
+       "~/.cache/katugen/zen-browser/zen-userContent.css" \
+       "$APPLY_DST zen"
+
+# ===========================================================================
+# End of application registry
+# ===========================================================================
 
 install_if_changed "$tmp_config" "$CONFIG_FILE" 0644
 
