@@ -30,8 +30,8 @@ Each click runs `matugen` against the image and writes:
 | **GTK 3** | `~/.config/gtk-3.0/matugen.css` |
 | **GTK 4** | `~/.config/gtk-4.0/matugen.css` |
 | **Qt 5 / Qt 6** | `~/.config/qt5ct/colors/matugen.conf`, `~/.config/qt6ct/colors/matugen.conf` |
-| **BetterDiscord** | `~/.config/BetterDiscord/themes/matugen.theme.css` |
-| **Vesktop** | `~/.config/vesktop/themes/matugen.theme.css` |
+| **BetterDiscord** | `~/.config/BetterDiscord/themes/matugen-material.theme.css`, `matugen-midnight.theme.css` |
+| **Vesktop** | `~/.config/vesktop/themes/matugen-material.theme.css`, `matugen-midnight.theme.css` |
 | **Firefox (pywalfox)** | `~/.cache/wal/colors.json` |
 
 The wallpaper is also set via `plasma-apply-wallpaperimage`, and the GTK
@@ -77,7 +77,7 @@ After the first generation run, point each app at its `matugen` theme file once:
   ```
 - **btop** — `Esc → Options → Color theme → matugen`
 - **Qt apps** — in `qt5ct` / `qt6ct`, set *Color Scheme → matugen*
-- **BetterDiscord / Vesktop** — enable `matugen.theme.css` in the themes panel
+- **BetterDiscord / Vesktop** — in the themes panel, enable either `matugen-material.theme.css` (Noctalia Material) or `matugen-midnight.theme.css` (Noctalia Midnight)
 - **KDE** — *System Settings → Colors → Matugen* (also auto-applied each run)
 - **Firefox** — install the [pywalfox add-on](https://github.com/Frewacom/pywalfox-native) and the `pywalfox` helper, then run `pywalfox install` once. After that the generator script automatically runs `pywalfox update` and `pywalfox light`/`pywalfox dark` on every regeneration, so Firefox theming refreshes live (no manual reload needed).
 

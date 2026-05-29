@@ -13,15 +13,25 @@ output_path = '~/.config/alacritty/themes/matugen.toml'
 input_path  = '@TEMPLATES@/btop.theme'
 output_path = '~/.config/btop/themes/matugen.theme'
 
-# ---- Discord (BetterDiscord) ----
-[templates.discord-betterdiscord]
+# ---- Discord: Noctalia Material (BetterDiscord) ----
+[templates.discord-material-betterdiscord]
 input_path  = '@TEMPLATES@/discord-material.css'
-output_path = '~/.config/BetterDiscord/themes/matugen.theme.css'
+output_path = '~/.config/BetterDiscord/themes/matugen-material.theme.css'
 
-# ---- Discord (Vesktop) ----
-[templates.discord-vesktop]
+# ---- Discord: Noctalia Material (Vesktop) ----
+[templates.discord-material-vesktop]
 input_path  = '@TEMPLATES@/discord-material.css'
-output_path = '~/.config/vesktop/themes/matugen.theme.css'
+output_path = '~/.config/vesktop/themes/matugen-material.theme.css'
+
+# ---- Discord: Noctalia Midnight (BetterDiscord) ----
+[templates.discord-midnight-betterdiscord]
+input_path  = '@TEMPLATES@/discord-midnight.css'
+output_path = '~/.config/BetterDiscord/themes/matugen-midnight.theme.css'
+
+# ---- Discord: Noctalia Midnight (Vesktop) ----
+[templates.discord-midnight-vesktop]
+input_path  = '@TEMPLATES@/discord-midnight.css'
+output_path = '~/.config/vesktop/themes/matugen-midnight.theme.css'
 
 # ---- GTK 3 ----
 [templates.gtk3]
