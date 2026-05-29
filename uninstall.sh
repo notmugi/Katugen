@@ -7,8 +7,8 @@
 #   - matugen config at      ~/.config/matugen/config.toml         (with --purge)
 #   - installed templates    ~/.config/matugen/templates           (with --purge)
 #
-# By default the matugen config and templates are LEFT IN PLACE so you
-# don't lose customizations. Pass --purge to remove them too.
+# By default the matugen config and templates are LEFT IN PLACE so you don't
+# lose customizations. Pass --purge to remove them too.
 #
 # Generated outputs (e.g. ~/.local/share/color-schemes/matugen.colors) are
 # never touched — delete those manually if you want a fully clean slate.

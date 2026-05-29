@@ -1,0 +1,84 @@
+# katugen template registry — one row per matugen template.
+# Format (tab-separated):  id  template_relpath  marker_dir  output_path
+#
+# - `id`              : matugen [templates.<id>] section name. Must be unique.
+# - `template_relpath`: path under templates/ in this repo.
+# - `marker_dir`      : if this directory exists at install time, the template is
+#                       enabled. Use ALWAYS to install unconditionally.
+#                       ~ is expanded to $HOME.
+# - `output_path`     : where matugen writes the generated file. ~ is expanded
+#                       to $HOME by matugen at runtime.
+#
+# Lines starting with # and blank lines are ignored. Tab-separated.
+
+# ---- KDE / Plasma (always installed — this is the whole point of katugen) ----
+kcolorscheme	kcolorscheme.colors	ALWAYS	~/.local/share/color-schemes/matugen.colors
+
+# ---- Firefox via pywalfox (always — script will pywalfox-update if installed) ----
+pywalfox	pywalfox.json	ALWAYS	~/.cache/wal/colors.json
+
+# ---- GTK ----
+gtk3	gtk3.css	~/.config/gtk-3.0	~/.config/gtk-3.0/matugen.css
+gtk4	gtk4.css	~/.config/gtk-4.0	~/.config/gtk-4.0/matugen.css
+
+# ---- Qt ----
+qt5ct	qtct.conf	~/.config/qt5ct	~/.config/qt5ct/colors/matugen.conf
+qt6ct	qtct.conf	~/.config/qt6ct	~/.config/qt6ct/colors/matugen.conf
+
+# ---- Terminals ----
+alacritty	terminal/alacritty.toml	~/.config/alacritty	~/.config/alacritty/themes/matugen.toml
+foot	terminal/foot	~/.config/foot	~/.config/foot/matugen.ini
+ghostty	terminal/ghostty	~/.config/ghostty	~/.config/ghostty/themes/matugen
+kitty	terminal/kitty.conf	~/.config/kitty	~/.config/kitty/matugen.conf
+wezterm	terminal/wezterm.toml	~/.config/wezterm	~/.config/wezterm/colors/matugen.toml
+
+# ---- Shell prompt ----
+starship	terminal/starship.toml	~/.config	~/.config/starship.toml.matugen
+
+# ---- TUI apps ----
+btop	btop.theme	~/.config/btop	~/.config/btop/themes/matugen.theme
+cava	cava.ini	~/.config/cava	~/.config/cava/config.matugen
+helix	helix.toml	~/.config/helix	~/.config/helix/themes/matugen.toml
+yazi	yazi.toml	~/.config/yazi	~/.config/yazi/theme.toml.matugen
+zathura	zathurarc	~/.config/zathura	~/.config/zathura/matugenrc
+
+# ---- Editors ----
+vscode	code.json	~/.config/Code/User	~/.config/Code/User/matugen-colors.json
+zed	zed.json	~/.config/zed	~/.config/zed/themes/matugen.json
+emacs	emacs.el	~/.config/emacs	~/.config/emacs/matugen-theme.el
+
+# ---- Discord (both clients, both Noctalia themes) ----
+discord-material-bd	discord-material.css	~/.config/BetterDiscord	~/.config/BetterDiscord/themes/matugen-material.theme.css
+discord-midnight-bd	discord-midnight.css	~/.config/BetterDiscord	~/.config/BetterDiscord/themes/matugen-midnight.theme.css
+discord-material-vk	discord-material.css	~/.config/vesktop	~/.config/vesktop/themes/matugen-material.theme.css
+discord-midnight-vk	discord-midnight.css	~/.config/vesktop	~/.config/vesktop/themes/matugen-midnight.theme.css
+
+# ---- Spicetify (Spotify) ----
+spicetify	spicetify.ini	~/.config/spicetify	~/.config/spicetify/Themes/matugen/color.ini
+
+# ---- Telegram Desktop ----
+telegram	telegram.tdesktop-theme	~/.local/share/TelegramDesktop	~/.local/share/TelegramDesktop/matugen.tdesktop-theme
+
+# ---- Steam (via SFP / Millennium) ----
+steam	steam.css	~/.steam	~/.steam/steam/skins/matugen.css
+
+# ---- Wayland compositors ----
+hyprland	hyprland.conf	~/.config/hypr	~/.config/hypr/matugen.conf
+hyprtoolkit	hyprtoolkit.conf	~/.config/hyprtoolkit	~/.config/hyprtoolkit/matugen.conf
+niri	niri.kdl	~/.config/niri	~/.config/niri/matugen.kdl
+sway	sway	~/.config/sway	~/.config/sway/matugen
+labwc	labwc.conf	~/.config/labwc	~/.config/labwc/matugen.conf
+mango	mango.conf	~/.config/mango	~/.config/mango/matugen.conf
+scroll	scroll	~/.config/scroll	~/.config/scroll/matugen
+
+# ---- App launchers / bars ----
+fuzzel	fuzzel.conf	~/.config/fuzzel	~/.config/fuzzel/colors.ini
+walker	walker.css	~/.config/walker	~/.config/walker/themes/matugen.css
+vicinae	vicinae.toml	~/.config/vicinae	~/.config/vicinae/matugen.toml
+
+# ---- Noctalia shell ----
+noctalia	noctalia.json	~/.config/noctalia	~/.config/noctalia/Settings/Colors.json
+
+# ---- Zen Browser ----
+zen-userchrome	zen-browser/zen-userChrome.css	~/.zen	~/.zen/matugen-userChrome.css
+zen-usercontent	zen-browser/zen-userContent.css	~/.zen	~/.zen/matugen-userContent.css
