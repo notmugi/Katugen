@@ -1,4 +1,7 @@
 #!/usr/bin/env -S bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Adapted from noctalia-shell (https://github.com/noctalia-dev/noctalia-shell)
+# Original copyright (c) 2025 noctalia-dev. Modifications (c) 2026 mugi.
 
 # Ensure at least one argument is provided.
 if [ "$#" -lt 1 ]; then

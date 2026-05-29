@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (c) 2026 mugi (https://github.com/notmugi)
 # matugen-generate.sh
 # Generate a Material You colorscheme from an image using matugen,
 # then apply the KDE color scheme and nudge GTK apps to refresh.

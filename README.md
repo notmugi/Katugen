@@ -162,4 +162,7 @@ Template syntax reference: [matugen template docs][mtmpl].
 
 ## License
 
-MIT.
+GPLv3. See [LICENSE](LICENSE) for the full text.
+
+Includes code adapted from [noctalia-shell][noctalia] (`scripts/template-apply.sh`,
+`scripts/python/gtk-refresh.py`).
