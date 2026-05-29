@@ -26,14 +26,18 @@ kitty)
         mkdir -p "$HOME/.config/kitty"
         ln -sf "themes/matugen.conf" "$CURRENT_THEME"
     fi
-    KITTY_CONF="$HOME/.config/kitty/kitty.conf"
-    if [ -w "$KITTY_CONF" ]; then
-        kitty +kitten themes --reload-in=all matugen
-    else
-        kitty +runpy "from kitty.utils import *; reload_conf_in_all_kitties()"
+    # Only invoke kitty if it's actually installed (some users keep
+    # ~/.config/kitty around without kitty itself).
+    if command -v kitty >/dev/null 2>&1; then
+        KITTY_CONF="$HOME/.config/kitty/kitty.conf"
+        if [ -w "$KITTY_CONF" ]; then
+            kitty +kitten themes --reload-in=all matugen
+        else
+            kitty +runpy "from kitty.utils import *; reload_conf_in_all_kitties()"
+        fi
+        # Trigger kitty's live config reload.
+        pkill -USR1 kitty >/dev/null 2>&1 || true
     fi
-    # Trigger kitty's live config reload after the template has been regenerated.
-    pkill -USR1 kitty >/dev/null 2>&1 || true
     ;;
 
 ghostty)

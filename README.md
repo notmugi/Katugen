@@ -45,6 +45,18 @@ Generated theme files and the `include`/`@import` lines that post-hooks wrote
 into your configs are **not** removed — clean those up by hand if you want a
 fresh slate.
 
+## Adding your own templates
+
+Add a `[templates.foo]` block to `~/.config/matugen/config.toml` — that's it.
+Template syntax is standard matugen; see the [matugen template docs][mtmpl].
+
+Note: `./install.sh` regenerates `config.toml` from this project's registry,
+so your custom entries get wiped on re-install. Only re-run install when you
+need to pick up new built-in app support (or just save your blocks and paste
+them back).
+
+[mtmpl]: https://github.com/InioX/matugen/blob/main/docs/configuration/templates.md
+
 ## Per-app one-time setup
 
 A handful of apps need a prerequisite before katugen can theme them. The rest
@@ -124,7 +136,6 @@ Matugen by [InioX][matugen]. Dolphin service-menu pattern from
 [this r/kde post](https://www.reddit.com/r/kde/comments/1tprakb/kde_plasma_6_i_automated_material_you_colors/)
 by u/Narcrop_.
 
-[mtmpl]: https://github.com/InioX/matugen/blob/main/docs/configuration/templates.md
 
 ## License
 
