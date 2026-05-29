@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# uninstall.sh — Remove matugen-kde.
+# uninstall.sh — Remove katugen.
 #
 # Removes:
 #   - generator script at    ~/.local/bin/matugen-generate.sh
@@ -44,7 +44,7 @@ remove() {
     fi
 }
 
-echo "==> Uninstalling matugen-kde"
+echo "==> Uninstalling katugen"
 remove "$SERVICEMENU_DST"
 remove "$SCRIPT_DST"
 

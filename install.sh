@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install.sh — Install matugen-kde.
+# install.sh — Install katugen.
 #
 # Sets up:
 #   - matugen templates in   ~/.config/matugen/templates

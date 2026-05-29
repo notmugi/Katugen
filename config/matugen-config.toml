@@ -1,5 +1,5 @@
 [config]
-# Matugen configuration installed by matugen-kde.
+# Matugen configuration installed by katugen.
 # Template paths are rewritten by install.sh to point at the installed
 # templates directory (default: ~/.config/matugen/templates).
 
