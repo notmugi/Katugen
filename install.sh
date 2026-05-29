@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install.sh — Install matugen-kde-dolphin.
+# install.sh — Install matugen-kde.
 #
 # Sets up:
 #   - matugen templates in   ~/.config/matugen/templates
