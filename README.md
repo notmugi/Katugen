@@ -47,13 +47,18 @@ fresh slate.
 
 ## Adding your own templates
 
-Add a `[templates.foo]` block to `~/.config/matugen/config.toml` — that's it.
-Template syntax is standard matugen; see the [matugen template docs][mtmpl].
+Drop `[templates.foo]` blocks into `~/.config/matugen/user-templates.toml`.
+katugen leaves that file alone and merges it into the main config on every
+`./install.sh`. Template syntax is standard matugen — see the
+[matugen template docs][mtmpl].
 
-Note: `./install.sh` regenerates `config.toml` from this project's registry,
-so your custom entries get wiped on re-install. Only re-run install when you
-need to pick up new built-in app support (or just save your blocks and paste
-them back).
+```toml
+# ~/.config/matugen/user-templates.toml
+[templates.myapp]
+input_path  = '~/.config/matugen/templates/myapp.toml'
+output_path = '~/.config/myapp/theme.toml'
+post_hook   = 'myapp --reload'    # optional
+```
 
 [mtmpl]: https://github.com/InioX/matugen/blob/main/docs/configuration/templates.md
 

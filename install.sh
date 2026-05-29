@@ -42,11 +42,13 @@ warn() { printf '%s  !%s %s\n'     "$c_yellow" "$c_reset" "$*"; }
 err()  { printf '%s ✗%s %s\n'      "$c_red"    "$c_reset" "$*" >&2; }
 
 # Replace $dst with $src only if content differs; back up the original.
+# Sets LAST_INSTALL_CHANGED=1 if the file was written, 0 if unchanged.
+LAST_INSTALL_CHANGED=0
 install_if_changed() {
     local src="$1" dst="$2" mode="${3:-0644}"
     mkdir -p "$(dirname "$dst")"
     if [[ -f "$dst" ]] && cmp -s "$src" "$dst"; then
-        skip "unchanged: $dst"; chmod "$mode" "$dst"; return 0
+        skip "unchanged: $dst"; chmod "$mode" "$dst"; LAST_INSTALL_CHANGED=0; return 0
     fi
     if [[ -e "$dst" || -L "$dst" ]]; then
         mv -- "$dst" "${dst}.bak-${STAMP}"
@@ -54,6 +56,7 @@ install_if_changed() {
     fi
     install -m "$mode" "$src" "$dst"
     ok "wrote $dst"
+    LAST_INSTALL_CHANGED=1
 }
 
 # Registry helpers --------------------------------------------------------
@@ -268,6 +271,19 @@ add_if "~/.zen" zen-usercontent zen-browser/zen-userContent.css \
 
 # =========================================================================
 
+# Merge user templates from ~/.config/matugen/user-templates.toml if present.
+# Users drop their own [templates.foo] blocks there; install.sh leaves the
+# file alone and appends its contents to the generated config.toml. A leading
+# [config] header (if any) is stripped since config.toml already has one.
+USER_TEMPLATES="$XDG_CONFIG_HOME/matugen/user-templates.toml"
+if [[ -f "$USER_TEMPLATES" ]]; then
+    {
+        printf '\n# --- user templates ---\n'
+        awk '/^\[config\][[:space:]]*$/ {found=1; next} 1' "$USER_TEMPLATES"
+    } >> "$tmp_config"
+    ok "Merged user templates from $USER_TEMPLATES"
+fi
+
 install_if_changed "$tmp_config" "$CONFIG_FILE" 0644
 
 ok "Enabled $enabled templates:"
@@ -294,13 +310,19 @@ sed "s|@SCRIPT@|${SCRIPT_DST}|g" \
 install_if_changed "$rendered" "$SERVICEMENU_DST" 0755
 rm -f "$rendered"
 
-info "Rebuilding KIO service cache"
-if command -v kbuildsycoca6 >/dev/null 2>&1; then
-    kbuildsycoca6 --noincremental >/dev/null 2>&1 || true; ok "kbuildsycoca6 done"
-elif command -v kbuildsycoca5 >/dev/null 2>&1; then
-    kbuildsycoca5 --noincremental >/dev/null 2>&1 || true; ok "kbuildsycoca5 done"
+# Only rebuild the KIO cache when the .desktop file actually changed —
+# kbuildsycoca6 --noincremental causes Plasma to lose the active color scheme.
+if [[ $LAST_INSTALL_CHANGED -eq 1 ]]; then
+    info "Rebuilding KIO service cache"
+    if command -v kbuildsycoca6 >/dev/null 2>&1; then
+        kbuildsycoca6 --noincremental >/dev/null 2>&1 || true; ok "kbuildsycoca6 done"
+    elif command -v kbuildsycoca5 >/dev/null 2>&1; then
+        kbuildsycoca5 --noincremental >/dev/null 2>&1 || true; ok "kbuildsycoca5 done"
+    else
+        warn "Skipped (no kbuildsycoca found)"
+    fi
 else
-    warn "Skipped (no kbuildsycoca found)"
+    skip "KIO cache rebuild skipped (service menu unchanged)"
 fi
 
 cat <<EOF
