@@ -67,7 +67,7 @@ katugen) and the pywalfox cache.
 ## Install
 
 ```sh
-git clone https://github.com/notmugi/katugen.git
+git clone https://github.com/notmugi/Katugen.git
 cd katugen
 ./install.sh
 ```
