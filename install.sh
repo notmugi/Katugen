@@ -25,7 +25,6 @@ SCRIPT_DST="$BIN_DIR/matugen-generate.sh"
 
 HELPER_DIR="$XDG_DATA_HOME/katugen"
 APPLY_DST="$HELPER_DIR/template-apply.sh"
-PYDIR_DST="$HELPER_DIR/python"
 
 SERVICEMENU_DIR="$XDG_DATA_HOME/kio/servicemenus"
 SERVICEMENU_DST="$SERVICEMENU_DIR/matugen-generate.desktop"
@@ -134,7 +133,7 @@ mkdir -p \
     "$XDG_DATA_HOME/color-schemes" \
     "$XDG_CACHE_HOME/wal" \
     "$XDG_CACHE_HOME/katugen/zen-browser" \
-    "$BIN_DIR" "$SERVICEMENU_DIR" "$HELPER_DIR" "$PYDIR_DST"
+    "$BIN_DIR" "$SERVICEMENU_DIR" "$HELPER_DIR"
 
 tmp_config="$(mktemp)"
 trap 'rm -f "$tmp_config"' EXIT
@@ -155,7 +154,7 @@ EOF
 #
 # Markers use literal "~" — expanded by the helpers above. Output paths
 # also use literal "~" — matugen expands them at runtime. Hooks may use
-# $APPLY_DST, $PYDIR_DST, and $KATUGEN_MODE (set by matugen-generate.sh).
+# $APPLY_DST and $KATUGEN_MODE (set by matugen-generate.sh).
 # =========================================================================
 
 # Always-on
@@ -168,7 +167,7 @@ register pywalfox     pywalfox.json \
 # GTK
 add_if "~/.config/gtk-3.0" gtk3 gtk3.css "~/.config/gtk-3.0/matugen.css"
 add_if "~/.config/gtk-4.0" gtk4 gtk4.css "~/.config/gtk-4.0/matugen.css" \
-       "$PYDIR_DST/gtk-refresh.py \"\$KATUGEN_MODE\""
+       "$APPLY_DST gtk \"\$KATUGEN_MODE\""
 
 # Qt
 add_if "~/.config/qt5ct" qt5ct qtct.conf "~/.config/qt5ct/colors/matugen.conf"
@@ -277,11 +276,8 @@ printf '       %s\n' "${enabled_names[@]}" | column -c 80 \
 [[ $skipped -gt 0 ]] && skip "Skipped $skipped (app not detected — install and re-run)"
 
 # Install scripts ---------------------------------------------------------
-info "Installing helper scripts → $HELPER_DIR"
+info "Installing helper script → $HELPER_DIR"
 install_if_changed "$REPO_DIR/scripts/template-apply.sh" "$APPLY_DST" 0755
-for py in "$REPO_DIR"/scripts/python/*.py; do
-    install_if_changed "$py" "$PYDIR_DST/$(basename "$py")" 0755
-done
 
 info "Installing generator script → $SCRIPT_DST"
 install_if_changed "$REPO_DIR/scripts/matugen-generate.sh" "$SCRIPT_DST" 0755

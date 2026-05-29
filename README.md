@@ -32,7 +32,7 @@ install later. The installer only wires up apps whose config dir/file
 actually exists on your system.
 
 **Requires:** KDE Plasma 6, [matugen][matugen] 4.x (`yay -S matugen-bin`),
-`python3`, `realpath`.
+`realpath` (coreutils).
 
 ## Uninstall
 

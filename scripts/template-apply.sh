@@ -7,7 +7,7 @@
 if [ "$#" -lt 1 ]; then
     # Print usage information to standard error.
     echo "Error: No application specified." >&2
-    echo "Usage: $0 {kitty|ghostty|foot|alacritty|wezterm|starship|fuzzel|walker|pywalfox|cava|yazi|labwc|niri|hyprland|sway|scroll|mango|btop|zathura|zen|vicinae} [dark|light]" >&2
+    echo "Usage: $0 {kitty|ghostty|foot|alacritty|wezterm|starship|fuzzel|walker|pywalfox|gtk|cava|yazi|labwc|niri|hyprland|sway|scroll|mango|btop|zathura|zen|vicinae} [dark|light]" >&2
     exit 1
 fi
 
@@ -644,6 +644,72 @@ starship)
                 printf '%s\n' "$MARKER_END"
             } >> "$CONFIG_FILE"
             ;;
+
+gtk)
+    # Ensure @import url("matugen.css"); is present in gtk-3.0/gtk.css and
+    # gtk-4.0/gtk.css. Handles read-only symlinks (NixOS) by converting them
+    # to local files. Also sets gsettings color-scheme + GTK theme.
+    GTK_IMPORT='@import url("matugen.css");'
+    CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}"
+
+    for v in gtk-3.0 gtk-4.0; do
+        DIR="$CONFIG_DIR/$v"
+        COLORS="$DIR/matugen.css"
+        GTK_CSS="$DIR/gtk.css"
+        [ -f "$COLORS" ] || continue
+        mkdir -p "$DIR"
+
+        if [ -e "$GTK_CSS" ] || [ -L "$GTK_CSS" ]; then
+            # Already imported? Done.
+            if grep -Fq 'matugen.css' "$GTK_CSS" && grep -Fq '@import' "$GTK_CSS"; then
+                continue
+            fi
+            # Convert read-only symlinks to local files first.
+            if [ -L "$GTK_CSS" ] && [ ! -w "$GTK_CSS" ]; then
+                cp --remove-destination "$(readlink -f "$GTK_CSS")" "$GTK_CSS"
+                chmod +w "$GTK_CSS"
+            fi
+            # Append with a blank-line separator, ensuring trailing newline.
+            [ -s "$GTK_CSS" ] && [ -z "$(tail -c1 "$GTK_CSS")" ] || printf '\n' >> "$GTK_CSS"
+            printf '\n%s\n' "$GTK_IMPORT" >> "$GTK_CSS"
+        else
+            printf '%s\n' "$GTK_IMPORT" > "$GTK_CSS"
+        fi
+    done
+
+    # gsettings → dconf fallback for color-scheme + GTK theme.
+    TARGET_THEME="adw-gtk3"
+    [ "$MODE" = "dark" ] && TARGET_THEME="adw-gtk3-dark"
+
+    theme_installed() {
+        local t="$1" d
+        for d in "$HOME/.themes" "$HOME/.local/share/themes" \
+                 /usr/share/themes /usr/local/share/themes; do
+            [ -d "$d/$t" ] && return 0
+        done
+        # XDG_DATA_DIRS
+        local IFS=:
+        for d in ${XDG_DATA_DIRS:-}; do
+            [ -d "$d/themes/$t" ] && return 0
+        done
+        return 1
+    }
+
+    if [ "$MODE" = "dark" ] || [ "$MODE" = "light" ]; then
+        if command -v gsettings >/dev/null 2>&1 && \
+           gsettings list-schemas 2>/dev/null | grep -q '^org\.gnome\.desktop\.interface$'; then
+            gsettings set org.gnome.desktop.interface color-scheme "prefer-$MODE" || true
+            if theme_installed "$TARGET_THEME"; then
+                gsettings set org.gnome.desktop.interface gtk-theme "$TARGET_THEME" || true
+            fi
+        elif command -v dconf >/dev/null 2>&1; then
+            dconf write /org/gnome/desktop/interface/color-scheme "'prefer-$MODE'" || true
+            if theme_installed "$TARGET_THEME"; then
+                dconf write /org/gnome/desktop/interface/gtk-theme "'$TARGET_THEME'" || true
+            fi
+        fi
+    fi
+    ;;
 
 zen)
     # Inject @import lines for the staged matugen userChrome/userContent into
