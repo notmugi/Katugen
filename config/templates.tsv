@@ -24,7 +24,7 @@
 # ======================================================================
 # Always-on: KDE color scheme + Firefox/pywalfox cache.
 # ======================================================================
-kcolorscheme	kcolorscheme.colors	ALWAYS	~/.local/share/color-schemes/matugen.colors	@PYDIR@/kde-apply-scheme.py matugen
+kcolorscheme	kcolorscheme.colors	ALWAYS	~/.local/share/color-schemes/matugen.colors	NONE
 pywalfox	pywalfox.json	ALWAYS	~/.cache/wal/colors.json	@APPLY@ pywalfox "$KATUGEN_MODE"
 
 # ======================================================================
