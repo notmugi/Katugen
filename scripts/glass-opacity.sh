@@ -63,63 +63,72 @@ read_invert() {
     printf 0
 }
 
+read_mode() {
+    if [ -f "$CONF_FILE" ]; then
+        local v
+        v=$(grep -E '^MODE=' "$CONF_FILE" 2>/dev/null | tail -n1 | cut -d= -f2 | tr -d '[:space:]')
+        case "${v,,}" in dark|light) printf '%s' "${v,,}"; return ;; esac
+    fi
+    printf 'dark'
+}
+
 write_conf() {
-    local opacity="${1,,}" invert="$2"
+    local opacity="${1,,}" invert="$2" mode="${3:-$(read_mode)}"
     mkdir -p "$CONF_DIR"
     cat > "$CONF_FILE" <<EOF
-# Managed by glass-opacity.
+# Managed by glass-opacity / template-apply.sh.
 # OPACITY: two hex digits (00-ff). Default: $DEFAULT_OPACITY.
-# INVERT:  0|1. When 1, dark themes use the light tint and vice versa.
+# INVERT:  0|1. When 1, the tint is picked from the opposite of MODE.
+# MODE:    dark|light. Last matugen generation mode (stamped by template-apply).
 OPACITY=$opacity
 INVERT=$invert
+MODE=$mode
 EOF
 }
 
-write_opacity() { write_conf "$1" "$(read_invert)"; }
-write_invert()  { write_conf "$(read_opacity)" "$1"; }
+write_opacity() { write_conf "$1" "$(read_invert)" "$(read_mode)"; }
+write_invert()  { write_conf "$(read_opacity)" "$1" "$(read_mode)"; }
 
 percent_for() {
     local hex="$1"
     awk -v n="$((16#$hex))" 'BEGIN{ printf "%.0f", n*100/255 }'
 }
 
-# Re-apply the glass effect immediately using whatever color matugen
-# last generated (or whatever is currently in kwinrc if no cache exists).
+# Re-apply the glass effect immediately, picking the tint color from the
+# cached matugen template based on MODE (last generation) and INVERT.
+# Never reads the resolved TintColor (which may already be inverted).
 apply_now() {
-    local opacity="$1" color="" raw=""
-    local invert; invert=$(read_invert)
+    local opacity="$1" color=""
+    local invert mode
+    invert=$(read_invert)
+    mode=$(read_mode)
 
-    # If invert is on and the cached template has alt-mode colors, use the
-    # opposite of the current KDE theme (best-effort).
-    if [ "$invert" = "1" ] && [ -f "$CACHED_THEME" ]; then
-        local mode="dark"
-        if command -v kreadconfig6 >/dev/null 2>&1; then
-            local scheme
-            scheme=$(kreadconfig6 --file kdeglobals --group General --key ColorScheme 2>/dev/null || true)
-            [[ "${scheme,,}" == *light* ]] && mode="light"
-        fi
-        local alt
-        if [ "$mode" = "dark" ]; then
-            alt=$(grep -E '^# KATUGEN_TINT_LIGHT=' "$CACHED_THEME" | head -n1 | cut -d= -f2)
+    # Decide which variant to use. invert=1 flips it.
+    local pick="$mode"
+    if [ "$invert" = "1" ]; then
+        [ "$mode" = "dark" ] && pick="light" || pick="dark"
+    fi
+
+    # Read the requested variant directly from the cached template comments.
+    if [ -f "$CACHED_THEME" ]; then
+        local key alt
+        if [ "$pick" = "dark" ]; then
+            key='# KATUGEN_TINT_DARK='
         else
-            alt=$(grep -E '^# KATUGEN_TINT_DARK=' "$CACHED_THEME" | head -n1 | cut -d= -f2)
+            key='# KATUGEN_TINT_LIGHT='
         fi
+        alt=$(grep -E "^${key}" "$CACHED_THEME" | head -n1 | cut -d= -f2 | tr -d '[:space:]')
         [[ "$alt" =~ ^[0-9a-fA-F]{6}$ ]] && color="${alt,,}"
     fi
 
-    if [ -z "$color" ] && [ -f "$CACHED_THEME" ]; then
-        raw=$(grep '^TintColor=' "$CACHED_THEME" | head -n1 | cut -d= -f2)
-    fi
-    if [ -z "$color" ] && [ -z "$raw" ] && [ -f "$KWINRC" ]; then
+    # Fallback: pull whatever is currently in kwinrc (used only on first run
+    # before any generation has happened).
+    if [ -z "$color" ] && [ -f "$KWINRC" ]; then
+        local raw stripped
         raw=$(awk '/^\[Effect-blurplus\]/{f=1;next} /^\[/{f=0} f && /^TintColor=/{print; exit}' "$KWINRC" | cut -d= -f2)
-    fi
-
-    if [ -z "$color" ] && [ -n "$raw" ]; then
-        local stripped="${raw#\#}"
+        stripped="${raw#\#}"
         stripped="${stripped/__OPACITY__/}"
-        if [ "${#stripped}" -ge 6 ]; then
-            color="${stripped: -6}"
-        fi
+        [ "${#stripped}" -ge 6 ] && color="${stripped: -6}"
     fi
 
     if [ -z "$color" ]; then
@@ -151,10 +160,11 @@ apply_now() {
 }
 
 cmd_get() {
-    local v inv
-    v=$(read_opacity); inv=$(read_invert)
+    local v inv mode
+    v=$(read_opacity); inv=$(read_invert); mode=$(read_mode)
     printf 'opacity = %s  (%s%%)\n' "$v" "$(percent_for "$v")"
     printf 'invert  = %s\n' "$([ "$inv" = 1 ] && echo on || echo off)"
+    printf 'mode    = %s  (last generation)\n' "$mode"
 }
 
 cmd_invert() {

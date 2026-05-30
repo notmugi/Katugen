@@ -74,6 +74,17 @@ kwin-glass)
         [ "$loaded" = "false" ] && qdbus org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect glass >/dev/null 2>&1 || true
         qdbus org.kde.KWin /Effects org.kde.kwin.Effects.reconfigureEffect glass >/dev/null 2>&1 || true
     fi
+
+    # Remember the generation mode so glass-opacity can compute the inverse
+    # later without guessing. KATUGEN_MODE is exported by matugen-generate.sh.
+    if [ -n "${KATUGEN_MODE:-}" ]; then
+        mkdir -p "$(dirname "$GLASS_OPACITY_CONF")"
+        if [ -f "$GLASS_OPACITY_CONF" ] && grep -q '^MODE=' "$GLASS_OPACITY_CONF"; then
+            sed -i "s|^MODE=.*|MODE=$KATUGEN_MODE|" "$GLASS_OPACITY_CONF"
+        else
+            printf 'MODE=%s\n' "$KATUGEN_MODE" >> "$GLASS_OPACITY_CONF"
+        fi
+    fi
     ;;
 
 kitty)
