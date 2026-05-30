@@ -26,6 +26,20 @@ mkdir -p "$(dirname "$LOG")"
 # Exported so per-template post_hooks (pywalfox, gtk4, …) can branch on mode.
 export KATUGEN_MODE="$MODE"
 
+# Apply-queue: per-template post_hooks just append to this file instead of
+# running inline. We flush them in parallel below, so the ~30 hooks finish
+# in one short burst rather than a 2-3s sequential stutter.
+KATUGEN_QUEUE="$(mktemp -t katugen-queue.XXXXXX)"
+export KATUGEN_QUEUE
+trap 'rm -f "$KATUGEN_QUEUE" "${KATUGEN_QUEUE}.lock"' EXIT
+
+# Path to the helper that handles each app. Honour XDG_DATA_HOME.
+APPLY_DST="${XDG_DATA_HOME:-$HOME/.local/share}/katugen/template-apply.sh"
+
+# How many apply jobs to run concurrently. nproc is a reasonable default;
+# override with KATUGEN_PARALLEL=N for testing.
+PARALLEL="${KATUGEN_PARALLEL:-$(command -v nproc >/dev/null 2>&1 && nproc || echo 4)}"
+
 {
     echo "==== $(date -Iseconds) | mode=$MODE | image=$WALLPAPER_PATH ===="
 
@@ -36,6 +50,20 @@ export KATUGEN_MODE="$MODE"
     # Generate. --source-color-index 0 picks the most dominant color (by area)
     # and is non-interactive (no "multiple source colors" prompt).
     matugen image --mode "$MODE" --source-color-index 0 "$WALLPAPER_PATH"
+
+    # Flush the queued per-app applies in parallel. Each line is "<app>\t<mode>".
+    if [ -s "$KATUGEN_QUEUE" ] && [ -x "$APPLY_DST" ]; then
+        echo "-- flushing $(wc -l < "$KATUGEN_QUEUE") queued apply jobs (parallel=$PARALLEL)"
+        # Tell the helper we're inside the flush so it actually runs the case
+        # body instead of re-queueing.
+        export KATUGEN_QUEUE_FLUSHING=1
+        # xargs -P runs N workers in parallel, one queue line per invocation.
+        # `tr` strips the tab so $1 = app, $2 = mode for the helper.
+        tr '\t' ' ' < "$KATUGEN_QUEUE" \
+            | xargs -P "$PARALLEL" -r -I{} bash -c 'set -- $1; "$0" "$@"' "$APPLY_DST" {} \
+            || true
+        unset KATUGEN_QUEUE_FLUSHING
+    fi
 
     # KDE: force Plasma to re-read the regenerated matugen.colors file.
     # plasma-apply-colorscheme refuses to re-apply the "current" scheme, so
@@ -51,12 +79,8 @@ export KATUGEN_MODE="$MODE"
         gsettings set org.gnome.desktop.interface color-scheme "prefer-$MODE" || true
     fi
 
-    # Firefox via pywalfox (also runs as a per-template post_hook; harmless
-    # double-call. Requires `pywalfox install` once.)
-    if command -v pywalfox >/dev/null 2>&1; then
-        pywalfox update || true
-        pywalfox "$MODE" || true
-    fi
+    # Firefox via pywalfox — the pywalfox post_hook (queued above) already
+    # ran `pywalfox update && pywalfox $MODE`, so no need to repeat here.
 
     echo "Done."
 } >>"$LOG" 2>&1

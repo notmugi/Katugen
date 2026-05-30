@@ -150,13 +150,20 @@ apply_now() {
         sed -i "/^\[Effect-blurplus\]/a TintColor=$tint" "$KWINRC"
     fi
 
+    # Only reconfigure if glass is currently loaded — never force-load it
+    # (System Settings remains the source of truth for enable/disable).
     if command -v qdbus >/dev/null 2>&1 && qdbus org.kde.KWin >/dev/null 2>&1; then
         local loaded
         loaded=$(qdbus org.kde.KWin /Effects org.kde.kwin.Effects.isEffectLoaded glass 2>/dev/null || echo false)
-        [ "$loaded" = "false" ] && qdbus org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect glass >/dev/null 2>&1 || true
-        qdbus org.kde.KWin /Effects org.kde.kwin.Effects.reconfigureEffect glass >/dev/null 2>&1 || true
+        if [ "$loaded" = "true" ]; then
+            qdbus org.kde.KWin /Effects org.kde.kwin.Effects.reconfigureEffect glass >/dev/null 2>&1 || true
+            info "applied TintColor=$tint"
+        else
+            info "saved TintColor=$tint (glass effect is disabled; will apply when re-enabled)"
+        fi
+    else
+        info "saved TintColor=$tint (KWin D-Bus unavailable)"
     fi
-    info "applied TintColor=$tint"
 }
 
 cmd_get() {

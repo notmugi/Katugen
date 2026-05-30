@@ -14,6 +14,24 @@ fi
 APP_NAME="$1"
 MODE="${2:-}" # Optional second argument for dark/light mode
 
+# --- Queue mode -----------------------------------------------------------
+# When KATUGEN_QUEUE is set, instead of running the per-app logic inline we
+# just append "<app>\t<mode>" to the queue file. matugen-generate.sh then
+# flushes the queue in parallel after matugen exits, collapsing ~30
+# sequential subprocess + D-Bus storms into one short concurrent burst.
+#
+# Standalone invocations (no KATUGEN_QUEUE set) still run inline as before.
+if [ -n "${KATUGEN_QUEUE:-}" ] && [ -z "${KATUGEN_QUEUE_FLUSHING:-}" ]; then
+    # Use flock to avoid interleaved writes if matugen ever parallelises hooks.
+    {
+        if command -v flock >/dev/null 2>&1; then
+            flock 9
+        fi
+        printf '%s\t%s\n' "$APP_NAME" "$MODE" >> "$KATUGEN_QUEUE"
+    } 9>>"${KATUGEN_QUEUE}.lock"
+    exit 0
+fi
+
 # --- Apply theme based on the application name ---
 case "$APP_NAME" in
 kwin-glass)
@@ -68,11 +86,14 @@ kwin-glass)
         sed -i "/^\[Effect-blurplus\]/a TintColor=$TINT_COLOR" "$KWINRC"
     fi
 
-    # Apply via D-Bus if KWin is up.
+    # Apply via D-Bus if KWin is up. Respect the user's enable/disable
+    # choice: only reconfigure if the effect is currently loaded. Never
+    # force-load it (so disabling it in System Settings sticks).
     if command -v qdbus >/dev/null 2>&1 && qdbus org.kde.KWin >/dev/null 2>&1; then
         loaded=$(qdbus org.kde.KWin /Effects org.kde.kwin.Effects.isEffectLoaded glass 2>/dev/null || echo false)
-        [ "$loaded" = "false" ] && qdbus org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect glass >/dev/null 2>&1 || true
-        qdbus org.kde.KWin /Effects org.kde.kwin.Effects.reconfigureEffect glass >/dev/null 2>&1 || true
+        if [ "$loaded" = "true" ]; then
+            qdbus org.kde.KWin /Effects org.kde.kwin.Effects.reconfigureEffect glass >/dev/null 2>&1 || true
+        fi
     fi
 
     # Remember the generation mode so glass-opacity can compute the inverse
