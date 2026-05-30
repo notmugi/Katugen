@@ -78,19 +78,27 @@ are fully automatic.
 
 ## KWin Glass Effect opacity control
 
-The glass effect tint defaults to `90` hex (~56%) alpha. The value persists
-at `~/.config/katugen/glass.conf` and is re-applied on every generation, so
-set it once and every future re-theme will use it.
+Tint defaults to `90` hex (~56%) alpha. Settings persist at
+`~/.config/katugen/glass.conf` and are re-applied on every generation —
+set once and every future re-theme reuses them.
 
-```bash
-glass-opacity              # show current value
-glass-opacity set bf       # set to 0xbf (~75%) and apply immediately
-glass-opacity reset        # back to default (90)
-glass-opacity presets      # list named presets
-glass-opacity light        # apply a named preset (transparent/light/medium/strong/solid)
+```text
+glass-opacity                       show current settings
+glass-opacity get                   same as above
+glass-opacity set <hex>             set opacity (2 hex digits, 00-ff) and apply now
+glass-opacity reset                 opacity back to default (90)
+glass-opacity presets               list named presets
+glass-opacity <preset>              apply a named preset
+                                    (transparent | light | medium | strong | solid)
+glass-opacity invert [on|off|toggle]
+                                    invert tint vs. theme mode:
+                                      on     dark theme → light tint, light → dark
+                                      off    tint follows theme mode (default)
+                                      toggle flip current value (default if omitted)
+glass-opacity -h | --help | help    show this message
 ```
 
-Hex reference: `33`=20%, `66`=40%, `90`=56%, `bf`=75%, `ff`=100%.
+Hex reference: `33`=20%, `66`=40%, `90`=56% (default), `bf`=75%, `ff`=100%.
 
 ## Contributing — adding a new app
 

@@ -10,12 +10,16 @@
 # whatever you set here.
 #
 # Usage:
-#   glass-opacity              # show current value
-#   glass-opacity get          # same as above
-#   glass-opacity set <hex>    # set new value (2 hex digits) and apply now
-#   glass-opacity reset        # back to default (90)
-#   glass-opacity presets      # list named presets
-#   glass-opacity <preset>     # apply a named preset (light/medium/strong/...)
+#   glass-opacity                  # show current settings
+#   glass-opacity get              # same as above
+#   glass-opacity set <hex>        # set opacity (2 hex digits) and apply now
+#   glass-opacity reset            # opacity back to default (90)
+#   glass-opacity presets          # list named presets
+#   glass-opacity <preset>         # apply a named preset (light/medium/strong/...)
+#   glass-opacity invert [on|off|toggle]
+#                                  # invert tint vs. theme mode:
+#                                  # on  → dark theme uses light tint, light uses dark
+#                                  # off → tint follows theme mode (default)
 
 set -euo pipefail
 
@@ -50,14 +54,29 @@ read_opacity() {
     printf '%s' "$DEFAULT_OPACITY"
 }
 
-write_opacity() {
-    local val="${1,,}"
+read_invert() {
+    if [ -f "$CONF_FILE" ]; then
+        local v
+        v=$(grep -E '^INVERT=' "$CONF_FILE" 2>/dev/null | tail -n1 | cut -d= -f2 | tr -d '[:space:]')
+        case "${v,,}" in 1|true|yes|on) printf 1; return ;; esac
+    fi
+    printf 0
+}
+
+write_conf() {
+    local opacity="${1,,}" invert="$2"
     mkdir -p "$CONF_DIR"
     cat > "$CONF_FILE" <<EOF
-# Managed by glass-opacity. Two hex digits (00-ff). Default: $DEFAULT_OPACITY.
-OPACITY=$val
+# Managed by glass-opacity.
+# OPACITY: two hex digits (00-ff). Default: $DEFAULT_OPACITY.
+# INVERT:  0|1. When 1, dark themes use the light tint and vice versa.
+OPACITY=$opacity
+INVERT=$invert
 EOF
 }
+
+write_opacity() { write_conf "$1" "$(read_invert)"; }
+write_invert()  { write_conf "$(read_opacity)" "$1"; }
 
 percent_for() {
     local hex="$1"
@@ -68,17 +87,34 @@ percent_for() {
 # last generated (or whatever is currently in kwinrc if no cache exists).
 apply_now() {
     local opacity="$1" color="" raw=""
+    local invert; invert=$(read_invert)
 
-    if [ -f "$CACHED_THEME" ]; then
-        raw=$(grep '^TintColor=' "$CACHED_THEME" | head -n1 | cut -d= -f2)
+    # If invert is on and the cached template has alt-mode colors, use the
+    # opposite of the current KDE theme (best-effort).
+    if [ "$invert" = "1" ] && [ -f "$CACHED_THEME" ]; then
+        local mode="dark"
+        if command -v kreadconfig6 >/dev/null 2>&1; then
+            local scheme
+            scheme=$(kreadconfig6 --file kdeglobals --group General --key ColorScheme 2>/dev/null || true)
+            [[ "${scheme,,}" == *light* ]] && mode="light"
+        fi
+        local alt
+        if [ "$mode" = "dark" ]; then
+            alt=$(grep -E '^# KATUGEN_TINT_LIGHT=' "$CACHED_THEME" | head -n1 | cut -d= -f2)
+        else
+            alt=$(grep -E '^# KATUGEN_TINT_DARK=' "$CACHED_THEME" | head -n1 | cut -d= -f2)
+        fi
+        [[ "$alt" =~ ^[0-9a-fA-F]{6}$ ]] && color="${alt,,}"
     fi
 
-    if [ -z "$raw" ] && [ -f "$KWINRC" ]; then
+    if [ -z "$color" ] && [ -f "$CACHED_THEME" ]; then
+        raw=$(grep '^TintColor=' "$CACHED_THEME" | head -n1 | cut -d= -f2)
+    fi
+    if [ -z "$color" ] && [ -z "$raw" ] && [ -f "$KWINRC" ]; then
         raw=$(awk '/^\[Effect-blurplus\]/{f=1;next} /^\[/{f=0} f && /^TintColor=/{print; exit}' "$KWINRC" | cut -d= -f2)
     fi
 
-    if [ -n "$raw" ]; then
-        # Strip leading '#' and optional placeholder/old opacity, keep RRGGBB.
+    if [ -z "$color" ] && [ -n "$raw" ]; then
         local stripped="${raw#\#}"
         stripped="${stripped/__OPACITY__/}"
         if [ "${#stripped}" -ge 6 ]; then
@@ -115,8 +151,24 @@ apply_now() {
 }
 
 cmd_get() {
-    local v; v=$(read_opacity)
+    local v inv
+    v=$(read_opacity); inv=$(read_invert)
     printf 'opacity = %s  (%s%%)\n' "$v" "$(percent_for "$v")"
+    printf 'invert  = %s\n' "$([ "$inv" = 1 ] && echo on || echo off)"
+}
+
+cmd_invert() {
+    local arg="${1:-toggle}" cur new
+    cur=$(read_invert)
+    case "${arg,,}" in
+        on|1|true|yes)    new=1 ;;
+        off|0|false|no)   new=0 ;;
+        toggle|"")        new=$([ "$cur" = 1 ] && echo 0 || echo 1) ;;
+        *) die "invert takes: on | off | toggle (got: $arg)" ;;
+    esac
+    write_invert "$new"
+    info "invert=$([ "$new" = 1 ] && echo on || echo off) → $CONF_FILE"
+    apply_now "$(read_opacity)"
 }
 
 cmd_set() {
@@ -142,7 +194,35 @@ cmd_presets() {
 }
 
 usage() {
-    sed -n '5,18p' "$0" | sed 's/^# \{0,1\}//'
+    cat <<'EOF'
+glass-opacity — manage Katugen's KWin Glass tint opacity and inversion.
+
+Settings persist at ~/.config/katugen/glass.conf and are re-applied on every
+matugen generation, so set once and every future re-theme reuses them.
+
+Usage:
+  glass-opacity                       show current settings
+  glass-opacity get                   same as above
+  glass-opacity set <hex>             set opacity (2 hex digits, 00-ff) and apply now
+  glass-opacity reset                 opacity back to default (90)
+  glass-opacity presets               list named presets
+  glass-opacity <preset>              apply a named preset
+                                      (transparent | light | medium | strong | solid)
+  glass-opacity invert [on|off|toggle]
+                                      invert tint vs. theme mode:
+                                        on     dark theme → light tint, light → dark
+                                        off    tint follows theme mode (default)
+                                        toggle flip current value (default if omitted)
+  glass-opacity -h | --help | help    show this message
+
+Hex reference:
+  33 = ~20%   66 = ~40%   90 = ~56% (default)   bf = ~75%   ff = 100%
+
+Examples:
+  glass-opacity set bf                # ~75% opacity
+  glass-opacity strong                # same, via named preset
+  glass-opacity invert on             # flip tint vs. theme mode
+EOF
 }
 
 main() {
@@ -152,6 +232,7 @@ main() {
         set)      cmd_set "${1:-}" ;;
         reset)    cmd_reset ;;
         presets)  cmd_presets ;;
+        invert)   cmd_invert "${1:-toggle}" ;;
         -h|--help|help) usage ;;
         *)
             if [[ -v PRESETS[$sub] ]]; then

@@ -24,18 +24,34 @@ kwin-glass)
 
     [ -f "$GLASS_THEME" ] || exit 0
 
-    # Read persistent opacity (default 90). Strip whitespace, validate 2 hex chars.
+    # Read persistent opacity (default 90) + invert flag (default off).
     OPACITY=90
+    INVERT=0
     if [ -f "$GLASS_OPACITY_CONF" ]; then
         v=$(grep -E '^OPACITY=' "$GLASS_OPACITY_CONF" 2>/dev/null | tail -n1 | cut -d= -f2 | tr -d '[:space:]')
         if [[ "$v" =~ ^[0-9a-fA-F]{2}$ ]]; then
             OPACITY="${v,,}"
         fi
+        i=$(grep -E '^INVERT=' "$GLASS_OPACITY_CONF" 2>/dev/null | tail -n1 | cut -d= -f2 | tr -d '[:space:]')
+        case "${i,,}" in 1|true|yes|on) INVERT=1 ;; esac
     fi
 
-    # Pull the templated TintColor, swap placeholder for real opacity.
+    # Pick the base color: default tracks current mode; invert swaps to
+    # the opposite-mode variant emitted by the template as a comment.
     RAW=$(grep '^TintColor=' "$GLASS_THEME" | head -n1 | cut -d= -f2)
     [ -n "$RAW" ] || exit 0
+    if [ "$INVERT" = "1" ]; then
+        # KATUGEN_MODE is exported by matugen-generate.sh
+        target_mode="${KATUGEN_MODE:-dark}"
+        if [ "$target_mode" = "dark" ]; then
+            alt=$(grep -E '^# KATUGEN_TINT_LIGHT=' "$GLASS_THEME" | head -n1 | cut -d= -f2)
+        else
+            alt=$(grep -E '^# KATUGEN_TINT_DARK=' "$GLASS_THEME" | head -n1 | cut -d= -f2)
+        fi
+        if [[ "$alt" =~ ^[0-9a-fA-F]{6}$ ]]; then
+            RAW="#__OPACITY__${alt}"
+        fi
+    fi
     TINT_COLOR="${RAW/__OPACITY__/$OPACITY}"
 
     # Make sure kwinrc + section exist.
