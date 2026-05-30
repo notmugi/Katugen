@@ -3,11 +3,11 @@
 *matugen, but for KDE.*
 
 Right-click any image in **Dolphin → Generate → Light/Dark** and your whole
-desktop re-themes: KDE Plasma, Alacritty, kitty, foot, ghostty, wezterm,
-starship, GTK 3/4, Qt 5/6, btop, helix, yazi, zathura, cava, BetterDiscord,
-Vesktop, Vencord and friends, Zed, Emacs, Spicetify, Hyprland, Niri, Sway,
-labwc, Mango, Scroll, Hyprtoolkit, fuzzel, walker, vicinae, Noctalia shell,
-Zen Browser, Steam, Telegram Desktop, and Firefox via pywalfox.
+desktop re-themes: KDE Plasma, KWin Glass Effect, Alacritty, kitty, foot, 
+ghostty, wezterm, starship, GTK 3/4, Qt 5/6, btop, helix, yazi, zathura, cava, 
+BetterDiscord, Vesktop, Vencord and friends, Zed, Emacs, Spicetify, Hyprland, 
+Niri, Sway, labwc, Mango, Scroll, Hyprtoolkit, fuzzel, walker, vicinae, 
+Noctalia shell, Zen Browser, Steam, Telegram Desktop, and Firefox via pywalfox.
 
 For most apps katugen also **auto-edits the main config** (inserts the
 `include`/`@import` line) and **fires the right live-reload signal** so you
@@ -68,12 +68,29 @@ A handful of apps need a prerequisite before katugen can theme them. The rest
 are fully automatic.
 
 - **Firefox** — install [pywalfox][pywalfox], then run `pywalfox install` once.
+- **KWin Glass Effect** — install `kwin-effects-glass-git` package (AUR) and enable the effect in System Settings.
 - **Spicetify** — install Spotify + the Comfy theme. katugen overwrites
   Comfy's `color.ini`.
 - **Steam** — install the Material Steam skin separately.
 - **Wezterm** — your `wezterm.lua` must use `wezterm.config_builder()` and end with `return config`.
 
 [pywalfox]: https://github.com/Frewacom/pywalfox-native
+
+## KWin Glass Effect opacity control
+
+The glass effect tint defaults to `90` hex (~56%) alpha. The value persists
+at `~/.config/katugen/glass.conf` and is re-applied on every generation, so
+set it once and every future re-theme will use it.
+
+```bash
+glass-opacity              # show current value
+glass-opacity set bf       # set to 0xbf (~75%) and apply immediately
+glass-opacity reset        # back to default (90)
+glass-opacity presets      # list named presets
+glass-opacity light        # apply a named preset (transparent/light/medium/strong/solid)
+```
+
+Hex reference: `33`=20%, `66`=40%, `90`=56%, `bf`=75%, `ff`=100%.
 
 ## Contributing — adding a new app
 

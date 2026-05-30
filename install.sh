@@ -22,6 +22,7 @@ CONFIG_FILE="$XDG_CONFIG_HOME/matugen/config.toml"
 
 BIN_DIR="$HOME/.local/bin"
 SCRIPT_DST="$BIN_DIR/matugen-generate.sh"
+GLASS_OPACITY_DST="$BIN_DIR/glass-opacity"
 
 HELPER_DIR="$XDG_DATA_HOME/katugen"
 APPLY_DST="$HELPER_DIR/template-apply.sh"
@@ -163,6 +164,12 @@ EOF
 # Always-on
 register kcolorscheme kcolorscheme.colors \
          "~/.local/share/color-schemes/matugen.colors"
+
+# KWin Glass Effect (requires kwin-effects-glass package)
+add_if "~/.config/kwinrc" kwin-glass kwin-glass.conf \
+       "~/.cache/matugen/kwin-glass.conf" \
+       "$APPLY_DST kwin-glass"
+
 register pywalfox     pywalfox.json \
          "~/.cache/wal/colors.json" \
          "$APPLY_DST pywalfox \"\$KATUGEN_MODE\""
@@ -297,6 +304,10 @@ install_if_changed "$REPO_DIR/scripts/template-apply.sh" "$APPLY_DST" 0755
 
 info "Installing generator script → $SCRIPT_DST"
 install_if_changed "$REPO_DIR/scripts/matugen-generate.sh" "$SCRIPT_DST" 0755
+
+info "Installing glass-opacity helper → $GLASS_OPACITY_DST"
+install_if_changed "$REPO_DIR/scripts/glass-opacity.sh" "$GLASS_OPACITY_DST" 0755
+
 case ":$PATH:" in
     *":$BIN_DIR:"*) : ;;
     *) warn "$BIN_DIR is not in your PATH (fine for the Dolphin menu)." ;;

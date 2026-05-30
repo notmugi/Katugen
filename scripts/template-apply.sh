@@ -7,7 +7,7 @@
 if [ "$#" -lt 1 ]; then
     # Print usage information to standard error.
     echo "Error: No application specified." >&2
-    echo "Usage: $0 {kitty|ghostty|foot|alacritty|wezterm|starship|fuzzel|walker|pywalfox|gtk|cava|yazi|labwc|niri|hyprland|sway|scroll|mango|btop|zathura|zen|vicinae} [dark|light]" >&2
+    echo "Usage: $0 {kitty|kwin-glass|ghostty|foot|alacritty|wezterm|starship|fuzzel|walker|pywalfox|gtk|cava|yazi|labwc|niri|hyprland|sway|scroll|mango|btop|zathura|zen|vicinae} [dark|light]" >&2
     exit 1
 fi
 
@@ -16,6 +16,50 @@ MODE="${2:-}" # Optional second argument for dark/light mode
 
 # --- Apply theme based on the application name ---
 case "$APP_NAME" in
+kwin-glass)
+    # KWin Glass Effect - inject user opacity, update kwinrc, apply via D-Bus
+    GLASS_THEME="$HOME/.cache/matugen/kwin-glass.conf"
+    GLASS_OPACITY_CONF="$HOME/.config/katugen/glass.conf"
+    KWINRC="$HOME/.config/kwinrc"
+
+    [ -f "$GLASS_THEME" ] || exit 0
+
+    # Read persistent opacity (default 90). Strip whitespace, validate 2 hex chars.
+    OPACITY=90
+    if [ -f "$GLASS_OPACITY_CONF" ]; then
+        v=$(grep -E '^OPACITY=' "$GLASS_OPACITY_CONF" 2>/dev/null | tail -n1 | cut -d= -f2 | tr -d '[:space:]')
+        if [[ "$v" =~ ^[0-9a-fA-F]{2}$ ]]; then
+            OPACITY="${v,,}"
+        fi
+    fi
+
+    # Pull the templated TintColor, swap placeholder for real opacity.
+    RAW=$(grep '^TintColor=' "$GLASS_THEME" | head -n1 | cut -d= -f2)
+    [ -n "$RAW" ] || exit 0
+    TINT_COLOR="${RAW/__OPACITY__/$OPACITY}"
+
+    # Make sure kwinrc + section exist.
+    mkdir -p "$(dirname "$KWINRC")"
+    touch "$KWINRC"
+    if ! grep -q '^\[Effect-blurplus\]' "$KWINRC"; then
+        printf '\n[Effect-blurplus]\n' >> "$KWINRC"
+    fi
+
+    # Replace or insert TintColor inside [Effect-blurplus].
+    if awk '/^\[Effect-blurplus\]/{f=1;next} /^\[/{f=0} f && /^TintColor=/{found=1} END{exit !found}' "$KWINRC"; then
+        sed -i "/^\[Effect-blurplus\]/,/^\[/ s|^TintColor=.*|TintColor=$TINT_COLOR|" "$KWINRC"
+    else
+        sed -i "/^\[Effect-blurplus\]/a TintColor=$TINT_COLOR" "$KWINRC"
+    fi
+
+    # Apply via D-Bus if KWin is up.
+    if command -v qdbus >/dev/null 2>&1 && qdbus org.kde.KWin >/dev/null 2>&1; then
+        loaded=$(qdbus org.kde.KWin /Effects org.kde.kwin.Effects.isEffectLoaded glass 2>/dev/null || echo false)
+        [ "$loaded" = "false" ] && qdbus org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect glass >/dev/null 2>&1 || true
+        qdbus org.kde.KWin /Effects org.kde.kwin.Effects.reconfigureEffect glass >/dev/null 2>&1 || true
+    fi
+    ;;
+
 kitty)
     # Many configs use: include ./current-theme.conf
     # Point it at the generated theme whenever the hook runs (including when matugen.conf

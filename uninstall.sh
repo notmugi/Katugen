@@ -22,10 +22,13 @@ XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
 
 SCRIPT_DST="$HOME/.local/bin/matugen-generate.sh"
+GLASS_OPACITY_DST="$HOME/.local/bin/glass-opacity"
 SERVICEMENU_DST="$XDG_DATA_HOME/kio/servicemenus/matugen-generate.desktop"
 HELPER_DIR="$XDG_DATA_HOME/katugen"
 CONFIG_FILE="$XDG_CONFIG_HOME/matugen/config.toml"
 TEMPLATES_DIR="$XDG_CONFIG_HOME/matugen/templates"
+GLASS_OPACITY_CONF="$XDG_CONFIG_HOME/katugen/glass.conf"
+GLASS_OPACITY_DIR="$XDG_CONFIG_HOME/katugen"
 
 remove() {
     if [[ -e "$1" || -L "$1" ]]; then
@@ -38,14 +41,18 @@ remove() {
 echo "==> Uninstalling katugen"
 remove "$SERVICEMENU_DST"
 remove "$SCRIPT_DST"
+remove "$GLASS_OPACITY_DST"
 remove "$HELPER_DIR"
 
 if [[ $PURGE -eq 1 ]]; then
     remove "$CONFIG_FILE"
     remove "$TEMPLATES_DIR"
+    remove "$GLASS_OPACITY_CONF"
+    rmdir "$GLASS_OPACITY_DIR" 2>/dev/null || true
 else
-    echo "  (kept)   $CONFIG_FILE     — pass --purge to remove"
-    echo "  (kept)   $TEMPLATES_DIR  — pass --purge to remove"
+    echo "  (kept)   $CONFIG_FILE         — pass --purge to remove"
+    echo "  (kept)   $TEMPLATES_DIR      — pass --purge to remove"
+    echo "  (kept)   $GLASS_OPACITY_CONF — pass --purge to remove"
 fi
 
 command -v kbuildsycoca6 >/dev/null 2>&1 && kbuildsycoca6 --noincremental >/dev/null 2>&1 || true
